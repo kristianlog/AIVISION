@@ -89,59 +89,91 @@ function App() {
   }
 
   const UserHeader = () => (
-    <div className="bg-white/10 backdrop-blur-md p-4 mb-6 rounded-lg border border-white/20">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
-            {userProfile?.avatar_url ? (
-              <img 
-                src={userProfile.avatar_url} 
-                alt={userProfile.name}
-                className="w-full h-full rounded-full object-cover"
-              />
-            ) : (
-              <User className="h-5 w-5 text-white" />
-            )}
-          </div>
-          <div>
-            <p className="text-white font-semibold">{userProfile?.name}</p>
-            <p className="text-purple-200 text-sm">Eurovision Voter</p>
-          </div>
+    <div style={{
+      background: 'rgba(255,255,255,0.06)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      padding: '14px 20px',
+      marginBottom: '24px',
+      borderRadius: '14px',
+      border: '1px solid rgba(255,255,255,0.1)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}>
+          {userProfile?.avatar_url ? (
+            <img
+              src={userProfile.avatar_url}
+              alt={userProfile.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+            />
+          ) : (
+            <User style={{ width: '20px', height: '20px', color: 'white' }} />
+          )}
         </div>
-        <button
-          onClick={handleSignOut}
-          className="flex items-center space-x-2 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-lg transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Sign Out</span>
-        </button>
+        <div>
+          <p style={{ color: 'white', fontWeight: 600, margin: 0, fontSize: '0.95rem' }}>{userProfile?.name}</p>
+          <p style={{ color: 'rgba(196,181,253,0.6)', fontSize: '0.8rem', margin: 0 }}>Eurovision Voter</p>
+        </div>
       </div>
+      <button
+        onClick={handleSignOut}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '8px 14px',
+          background: 'rgba(239,68,68,0.15)',
+          border: '1px solid rgba(239,68,68,0.25)',
+          borderRadius: '10px',
+          color: 'rgba(252,165,165,0.8)',
+          cursor: 'pointer',
+          fontSize: '0.85rem',
+          fontWeight: 500,
+          width: 'auto',
+          margin: 0,
+        }}
+      >
+        <LogOut style={{ width: '14px', height: '14px' }} />
+        <span>Sign Out</span>
+      </button>
     </div>
   );
 
   return (
     <Router>
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div style={{ minHeight: '100vh' }}>
         <Routes>
-          <Route 
-            path="/auth/callback" 
-            element={<AuthCallback onAuthSuccess={handleAuthSuccess} />} 
+          <Route
+            path="/auth/callback"
+            element={<AuthCallback onAuthSuccess={handleAuthSuccess} />}
           />
-          
-          <Route 
-            path="/" 
+
+          <Route
+            path="/"
             element={
               !session || !userProfile ? (
                 <Auth onAuthSuccess={handleAuthSuccess} />
               ) : (
-                <div className="container mx-auto px-4 py-8">
+                <div style={{ padding: '24px 16px', maxWidth: '1100px', margin: '0 auto' }}>
                   <UserHeader />
                   <EurovisionVoting userProfile={userProfile} />
                 </div>
               )
-            } 
+            }
           />
-          
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
