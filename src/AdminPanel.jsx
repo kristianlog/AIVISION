@@ -36,25 +36,30 @@ const AdminPanel = ({ onBack, userProfile }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load custom songs
-      const { data: songsData } = await supabase
-        .from('custom_songs')
-        .select('*')
-        .order('created_at', { ascending: false });
-      setSongs(songsData || []);
+      // Load custom songs - gracefully handle missing table
+      try {
+        const { data: songsData, error } = await supabase
+          .from('custom_songs')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error) setSongs(songsData || []);
+      } catch { /* table may not exist yet */ }
 
-      // Load country videos
-      const { data: videosData } = await supabase
-        .from('country_videos')
-        .select('*');
-      const videoMap = {};
-      (videosData || []).forEach(v => { videoMap[v.country_id] = v; });
-      setCountryVideos(videoMap);
+      // Load country videos - gracefully handle missing table
+      try {
+        const { data: videosData, error } = await supabase
+          .from('country_videos')
+          .select('*');
+        if (!error) {
+          const videoMap = {};
+          (videosData || []).forEach(v => { videoMap[v.country_id] = v; });
+          setCountryVideos(videoMap);
+        }
+      } catch { /* table may not exist yet */ }
     } catch (err) {
       console.error('Error loading admin data:', err);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   // ── Song Management ──────────────────────────────────────

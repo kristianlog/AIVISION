@@ -3,8 +3,13 @@ import { X, Star, Check, Music2 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import LyricsPlayer from './LyricsPlayer';
 
+const POINTS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
+
 const SongDetail = ({ song, userScore, onVote, onClose, userProfile }) => {
-  const [sliderValue, setSliderValue] = useState(userScore || 6);
+  const [selectedIndex, setSelectedIndex] = useState(
+    userScore ? POINTS.indexOf(userScore) : 4
+  );
+  const sliderValue = POINTS[selectedIndex] ?? POINTS[4];
   const [saved, setSaved] = useState(false);
   const [showLyricsPlayer, setShowLyricsPlayer] = useState(false);
 
@@ -50,7 +55,7 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile }) => {
 
   const handleClearVote = () => {
     onVote(song.id, null);
-    setSliderValue(6);
+    setSelectedIndex(4);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   };
@@ -152,20 +157,18 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile }) => {
             <div className="vote-slider-track-wrapper">
               <input
                 type="range"
-                min="1"
-                max="12"
-                value={sliderValue}
-                onChange={(e) => setSliderValue(parseInt(e.target.value))}
+                min="0"
+                max="9"
+                value={selectedIndex}
+                onChange={(e) => setSelectedIndex(parseInt(e.target.value))}
                 className="vote-slider"
                 style={{
-                  '--slider-pct': `${((sliderValue - 1) / 11) * 100}%`,
+                  '--slider-pct': `${(selectedIndex / 9) * 100}%`,
                   '--slider-color': getSliderColor(sliderValue),
                 }}
               />
               <div className="vote-slider-markers">
-                <span>1</span>
-                <span>6</span>
-                <span>12</span>
+                {POINTS.map(p => <span key={p}>{p}</span>)}
               </div>
             </div>
           </div>
