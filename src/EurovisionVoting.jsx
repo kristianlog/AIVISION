@@ -20,6 +20,8 @@ const EurovisionVoting = ({ userProfile }) => {
   const [userVotes, setUserVotes] = useState({});
   const [allVotes, setAllVotes] = useState([]);
   const [useLocal, setUseLocal] = useState(false);
+  const [countryVideos, setCountryVideos] = useState({});
+  const [allSongs, setAllSongs] = useState(SONGS);
 
   const toFakeVotes = useCallback((votesMap) => {
     return Object.entries(votesMap).map(([song_id, score]) => ({
@@ -51,6 +53,7 @@ const EurovisionVoting = ({ userProfile }) => {
     }
   }, [toFakeVotes]);
 
+  // Load votes, country videos, and custom songs
   useEffect(() => {
     const loadVotes = async () => {
       try {
@@ -80,7 +83,36 @@ const EurovisionVoting = ({ userProfile }) => {
       }
     };
 
+    const loadCountryVideos = async () => {
+      try {
+        const { data } = await supabase.from('country_videos').select('*');
+        if (data) {
+          const videoMap = {};
+          data.forEach(v => { videoMap[v.country_id] = v.video_url; });
+          setCountryVideos(videoMap);
+        }
+      } catch {
+        // Country videos table may not exist yet
+      }
+    };
+
+    const loadCustomSongs = async () => {
+      try {
+        const { data } = await supabase.from('custom_songs').select('*');
+        if (data && data.length > 0) {
+          // Merge custom songs with built-in songs (custom songs first)
+          const customSongIds = new Set(data.map(s => s.id));
+          const builtInFiltered = SONGS.filter(s => !customSongIds.has(s.id));
+          setAllSongs([...data, ...builtInFiltered]);
+        }
+      } catch {
+        // Custom songs table may not exist yet
+      }
+    };
+
     loadVotes();
+    loadCountryVideos();
+    loadCustomSongs();
   }, [userProfile?.id, loadLocalVotes]);
 
   const handleVote = async (songId, score) => {
@@ -120,7 +152,7 @@ const EurovisionVoting = ({ userProfile }) => {
     }
   };
 
-  const votedSongs = SONGS.filter((s) => userVotes[s.id]);
+  const votedSongs = allSongs.filter((s) => userVotes[s.id]);
   const totalPoints = Object.values(userVotes).reduce((sum, v) => sum + v, 0);
 
   return (
@@ -153,12 +185,13 @@ const EurovisionVoting = ({ userProfile }) => {
       {/* Songs Grid */}
       {activeTab === 'songs' && (
         <div className="ev-songs-grid">
-          {SONGS.map((song) => (
+          {allSongs.map((song) => (
             <SongCard
               key={song.id}
               song={song}
               userScore={userVotes[song.id]}
               onClick={() => setSelectedSong(song)}
+              videoUrl={countryVideos[song.id]}
             />
           ))}
         </div>
@@ -207,7 +240,7 @@ const EurovisionVoting = ({ userProfile }) => {
       {/* Leaderboard */}
       {activeTab === 'leaderboard' && (
         <Leaderboard
-          songs={SONGS}
+          songs={allSongs}
           userVotes={userVotes}
           allVotes={allVotes}
         />
@@ -220,6 +253,7 @@ const EurovisionVoting = ({ userProfile }) => {
           userScore={userVotes[selectedSong.id]}
           onVote={handleVote}
           onClose={() => setSelectedSong(null)}
+          userProfile={userProfile}
         />
       )}
     </div>

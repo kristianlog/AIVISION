@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
+import { isAdmin } from './adminConfig';
 import Auth from './Auth';
 import AuthCallback from './AuthCallback';
 import EurovisionVoting from './EurovisionVoting';
-import { User, LogOut } from 'lucide-react';
+import AdminPanel from './AdminPanel';
+import { User, LogOut, Shield } from 'lucide-react';
 
 function App() {
   const [session, setSession] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
     // Get initial session
@@ -73,8 +76,11 @@ function App() {
     } else {
       setSession(null);
       setUserProfile(null);
+      setShowAdmin(false);
     }
   };
+
+  const userIsAdmin = isAdmin(userProfile?.email || session?.user?.email);
 
   if (loading) {
     return (
@@ -123,31 +129,71 @@ function App() {
           )}
         </div>
         <div>
-          <p style={{ color: 'white', fontWeight: 600, margin: 0, fontSize: '0.95rem' }}>{userProfile?.name}</p>
+          <p style={{ color: 'white', fontWeight: 600, margin: 0, fontSize: '0.95rem' }}>
+            {userProfile?.name}
+            {userIsAdmin && (
+              <span style={{
+                marginLeft: '8px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                color: '#fbbf24',
+                background: 'rgba(251,191,36,0.15)',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                verticalAlign: 'middle',
+              }}>ADMIN</span>
+            )}
+          </p>
           <p style={{ color: 'rgba(196,181,253,0.6)', fontSize: '0.8rem', margin: 0 }}>Eurovision Voter</p>
         </div>
       </div>
-      <button
-        onClick={handleSignOut}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '8px 14px',
-          background: 'rgba(239,68,68,0.15)',
-          border: '1px solid rgba(239,68,68,0.25)',
-          borderRadius: '10px',
-          color: 'rgba(252,165,165,0.8)',
-          cursor: 'pointer',
-          fontSize: '0.85rem',
-          fontWeight: 500,
-          width: 'auto',
-          margin: 0,
-        }}
-      >
-        <LogOut style={{ width: '14px', height: '14px' }} />
-        <span>Sign Out</span>
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {userIsAdmin && (
+          <button
+            onClick={() => setShowAdmin(!showAdmin)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              background: showAdmin ? 'rgba(251,191,36,0.25)' : 'rgba(251,191,36,0.1)',
+              border: '1px solid rgba(251,191,36,0.3)',
+              borderRadius: '10px',
+              color: '#fbbf24',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 500,
+              width: 'auto',
+              margin: 0,
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <Shield style={{ width: '14px', height: '14px' }} />
+            <span>{showAdmin ? 'Back to App' : 'Admin'}</span>
+          </button>
+        )}
+        <button
+          onClick={handleSignOut}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            background: 'rgba(239,68,68,0.15)',
+            border: '1px solid rgba(239,68,68,0.25)',
+            borderRadius: '10px',
+            color: 'rgba(252,165,165,0.8)',
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            width: 'auto',
+            margin: 0,
+          }}
+        >
+          <LogOut style={{ width: '14px', height: '14px' }} />
+          <span>Sign Out</span>
+        </button>
+      </div>
     </div>
   );
 
@@ -168,7 +214,11 @@ function App() {
               ) : (
                 <div style={{ padding: '24px 16px', maxWidth: '1100px', margin: '0 auto' }}>
                   <UserHeader />
-                  <EurovisionVoting userProfile={userProfile} />
+                  {showAdmin && userIsAdmin ? (
+                    <AdminPanel onBack={() => setShowAdmin(false)} userProfile={userProfile} />
+                  ) : (
+                    <EurovisionVoting userProfile={userProfile} />
+                  )}
                 </div>
               )
             }

@@ -1,12 +1,48 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Music, Star } from 'lucide-react';
 
-const SongCard = ({ song, userScore, onClick }) => {
+const SongCard = ({ song, userScore, onClick, videoUrl }) => {
+  const [isHovering, setIsHovering] = useState(false);
+  const videoRef = useRef(null);
+
+  const handleMouseEnter = () => {
+    setIsHovering(true);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(() => {});
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovering(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  };
+
   return (
     <button
       onClick={onClick}
       className="song-card group"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
+      {/* Video overlay on hover */}
+      {videoUrl && (
+        <div className={`song-card-video-overlay ${isHovering ? 'song-card-video-visible' : ''}`}>
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            className="song-card-video"
+          />
+        </div>
+      )}
+
       <div className="song-card-flag">{song.flag}</div>
       <div className="song-card-body">
         <span className="song-card-genre">{song.genre}</span>
