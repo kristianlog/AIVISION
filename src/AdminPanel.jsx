@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import {
   ArrowLeft, Upload, Music, Video, Trash2, Plus, Save, X, Film,
-  CheckCircle, AlertCircle, Loader2
+  CheckCircle, AlertCircle, Loader2, Pencil
 } from 'lucide-react';
 
 const AdminPanel = ({ onBack, userProfile }) => {
@@ -14,6 +14,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
   // Song form state
   const [showSongForm, setShowSongForm] = useState(false);
+  const [editingSong, setEditingSong] = useState(null); // null = new song, object = editing
   const [songForm, setSongForm] = useState({
     id: '', country: '', flag: '', artist: '', title: '', genre: '', lyrics: ''
   });
@@ -87,15 +88,15 @@ const AdminPanel = ({ onBack, userProfile }) => {
       }
 
       const songData = {
-        id: songForm.id.toLowerCase().replace(/\s+/g, '-'),
+        id: editingSong ? editingSong.id : songForm.id.toLowerCase().replace(/\s+/g, '-'),
         country: songForm.country,
         flag: songForm.flag,
         artist: songForm.artist,
         title: songForm.title,
         genre: songForm.genre,
         lyrics: songForm.lyrics,
-        audio_url: audioUrl,
-        lyrics_timing: [],
+        audio_url: audioUrl || (editingSong?.audio_url ?? null),
+        lyrics_timing: editingSong?.lyrics_timing || [],
       };
 
       const { error } = await supabase
@@ -106,6 +107,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
       showMessage('Song saved successfully!');
       setShowSongForm(false);
+      setEditingSong(null);
       setSongForm({ id: '', country: '', flag: '', artist: '', title: '', genre: '', lyrics: '' });
       setAudioFile(null);
       loadData();
@@ -125,6 +127,28 @@ const AdminPanel = ({ onBack, userProfile }) => {
     } catch (err) {
       showMessage(err.message, 'error');
     }
+  };
+
+  const handleEditSong = (song) => {
+    setEditingSong(song);
+    setSongForm({
+      id: song.id,
+      country: song.country,
+      flag: song.flag,
+      artist: song.artist,
+      title: song.title,
+      genre: song.genre,
+      lyrics: song.lyrics || '',
+    });
+    setAudioFile(null);
+    setShowSongForm(true);
+  };
+
+  const handleOpenNewSong = () => {
+    setEditingSong(null);
+    setSongForm({ id: '', country: '', flag: '', artist: '', title: '', genre: '', lyrics: '' });
+    setAudioFile(null);
+    setShowSongForm(true);
   };
 
   // ── Video Management ─────────────────────────────────────
@@ -253,7 +277,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
         <div className="admin-section">
           <div className="admin-section-header">
             <h2>Custom Songs</h2>
-            <button onClick={() => setShowSongForm(true)} className="admin-add-btn">
+            <button onClick={handleOpenNewSong} className="admin-add-btn">
               <Plus size={18} />
               <span>Add Song</span>
             </button>
@@ -261,11 +285,11 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
           {/* Song Form Modal */}
           {showSongForm && (
-            <div className="admin-form-overlay" onClick={() => setShowSongForm(false)}>
+            <div className="admin-form-overlay" onClick={() => { setShowSongForm(false); setEditingSong(null); }}>
               <div className="admin-form-modal" onClick={e => e.stopPropagation()}>
                 <div className="admin-form-header">
-                  <h3>Add New Song</h3>
-                  <button onClick={() => setShowSongForm(false)} className="admin-form-close">
+                  <h3>{editingSong ? 'Edit Song' : 'Add New Song'}</h3>
+                  <button onClick={() => { setShowSongForm(false); setEditingSong(null); }} className="admin-form-close">
                     <X size={20} />
                   </button>
                 </div>
@@ -279,6 +303,8 @@ const AdminPanel = ({ onBack, userProfile }) => {
                         onChange={e => setSongForm(f => ({ ...f, country: e.target.value, id: e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
                         placeholder="e.g. Sweden"
                         required
+                        readOnly={!!editingSong}
+                        style={editingSong ? { opacity: 0.6 } : {}}
                       />
                     </div>
                     <div className="admin-form-field">
@@ -335,6 +361,11 @@ const AdminPanel = ({ onBack, userProfile }) => {
                   </div>
                   <div className="admin-form-field">
                     <label>Audio File (MP3, WAV, etc.)</label>
+                    {editingSong?.audio_url && !audioFile && (
+                      <p style={{ fontSize: '0.8rem', color: 'rgba(196,181,253,0.7)', margin: '0 0 6px' }}>
+                        Current: audio attached. Upload a new file to replace it.
+                      </p>
+                    )}
                     <div className="admin-file-input">
                       <input
                         type="file"
@@ -344,7 +375,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
                       />
                       <label htmlFor="audio-upload" className="admin-file-label">
                         <Upload size={18} />
-                        <span>{audioFile ? audioFile.name : 'Choose audio file...'}</span>
+                        <span>{audioFile ? audioFile.name : (editingSong?.audio_url ? 'Replace audio file...' : 'Choose audio file...')}</span>
                       </label>
                     </div>
                   </div>
@@ -384,7 +415,10 @@ const AdminPanel = ({ onBack, userProfile }) => {
                     )}
                     <span className="admin-badge">{song.genre}</span>
                   </div>
-                  <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn">
+                  <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song">
+                    <Pencil size={16} />
+                  </button>
+                  <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
                     <Trash2 size={16} />
                   </button>
                 </div>

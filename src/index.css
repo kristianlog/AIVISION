@@ -792,6 +792,67 @@ input:focus {
   white-space: nowrap;
 }
 
+/* Leaderboard Toggle */
+.leaderboard-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px;
+  border-radius: 10px;
+}
+.leaderboard-toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(196, 181, 253, 0.5);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  width: auto;
+  margin: 0;
+}
+.leaderboard-toggle-btn:hover {
+  color: rgba(196, 181, 253, 0.8);
+}
+.leaderboard-toggle-active {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+  font-weight: 600;
+}
+
+/* Leaderboard Ratings */
+.leaderboard-row-ratings {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.leaderboard-rating-overall {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #a78bfa;
+}
+.leaderboard-rating-cats {
+  display: flex;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: rgba(196, 181, 253, 0.5);
+}
+.leaderboard-row-nodata {
+  font-size: 0.8rem;
+  color: rgba(196, 181, 253, 0.3);
+  font-style: italic;
+}
+
 /* ─── Scrollbar ────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
@@ -1671,6 +1732,22 @@ input:focus {
 .admin-delete-btn:hover {
   background: rgba(239, 68, 68, 0.2);
   color: #fca5a5;
+}
+
+.admin-edit-btn {
+  padding: 8px;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 8px;
+  color: rgba(196, 181, 253, 0.6);
+  cursor: pointer;
+  width: auto;
+  margin: 0;
+  transition: all 0.2s ease;
+}
+.admin-edit-btn:hover {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
 }
 
 /* Admin Videos Grid */

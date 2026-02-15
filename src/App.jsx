@@ -70,13 +70,14 @@ function App() {
   };
 
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    // Always clear local state first so the UI updates immediately
+    setSession(null);
+    setUserProfile(null);
+    setShowAdmin(false);
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
       console.error('Error signing out:', error);
-    } else {
-      setSession(null);
-      setUserProfile(null);
-      setShowAdmin(false);
     }
   };
 

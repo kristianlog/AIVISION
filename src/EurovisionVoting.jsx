@@ -22,6 +22,7 @@ const EurovisionVoting = ({ userProfile }) => {
   const [useLocal, setUseLocal] = useState(false);
   const [countryVideos, setCountryVideos] = useState({});
   const [allSongs, setAllSongs] = useState(SONGS);
+  const [allRatings, setAllRatings] = useState([]);
 
   const toFakeVotes = useCallback((votesMap) => {
     return Object.entries(votesMap).map(([song_id, score]) => ({
@@ -110,9 +111,19 @@ const EurovisionVoting = ({ userProfile }) => {
       }
     };
 
+    const loadAllRatings = async () => {
+      try {
+        const { data } = await supabase.from('ratings').select('*');
+        if (data) setAllRatings(data);
+      } catch {
+        // ratings table may not exist yet
+      }
+    };
+
     loadVotes();
     loadCountryVideos();
     loadCustomSongs();
+    loadAllRatings();
   }, [userProfile?.id, loadLocalVotes]);
 
   const handleVote = async (songId, score) => {
@@ -243,6 +254,7 @@ const EurovisionVoting = ({ userProfile }) => {
           songs={allSongs}
           userVotes={userVotes}
           allVotes={allVotes}
+          allRatings={allRatings}
         />
       )}
 
