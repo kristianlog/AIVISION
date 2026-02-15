@@ -29,6 +29,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
   });
   const [audioFile, setAudioFile] = useState(null);
   const [uploadingSong, setUploadingSong] = useState(false);
+  const uploadAbortRef = useRef(null);
 
   // Video upload state
   const [videoUploading, setVideoUploading] = useState({});
@@ -72,6 +73,32 @@ const AdminPanel = ({ onBack, userProfile }) => {
     setLoading(false);
   };
 
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const MAX_AUDIO_SIZE = 20 * 1024 * 1024; // 20MB
+
+  const handleAudioFileSelect = (file) => {
+    if (!file) return;
+    if (file.size > MAX_AUDIO_SIZE) {
+      showMessage(`File too large (${formatFileSize(file.size)}). Max 20MB — try a compressed MP3.`, 'error');
+      return;
+    }
+    setAudioFile(file);
+  };
+
+  const handleCancelUpload = () => {
+    if (uploadAbortRef.current) {
+      uploadAbortRef.current.abort();
+      uploadAbortRef.current = null;
+    }
+    setUploadingSong(false);
+    showMessage('Upload cancelled', 'error');
+  };
+
   // ── Song Management ──────────────────────────────────────
   const handleSongSubmit = async (e) => {
     e.preventDefault();
@@ -82,12 +109,17 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
       // Upload audio file if provided
       if (audioFile) {
+        const abortController = new AbortController();
+        uploadAbortRef.current = abortController;
+
         const ext = audioFile.name.split('.').pop();
-        const fileName = `songs/${songForm.id}_${Date.now()}.${ext}`;
+        const songId = editingSong ? editingSong.id : songForm.id.toLowerCase().replace(/\s+/g, '-');
+        const fileName = `songs/${songId}_${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from('media')
-          .upload(fileName, audioFile);
+          .upload(fileName, audioFile, { signal: abortController.signal });
 
+        uploadAbortRef.current = null;
         if (uploadError) throw uploadError;
 
         const { data: urlData } = supabase.storage
@@ -369,7 +401,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
                     />
                   </div>
                   <div className="admin-form-field">
-                    <label>Audio File (MP3, WAV, etc.)</label>
+                    <label>Audio File (MP3 recommended, max 20MB)</label>
                     {editingSong?.audio_url && !audioFile && (
                       <p style={{ fontSize: '0.8rem', color: 'rgba(196,181,253,0.7)', margin: '0 0 6px' }}>
                         Current: audio attached. Upload a new file to replace it.
@@ -379,22 +411,38 @@ const AdminPanel = ({ onBack, userProfile }) => {
                       <input
                         type="file"
                         accept="audio/*"
-                        onChange={e => setAudioFile(e.target.files[0])}
+                        onChange={e => handleAudioFileSelect(e.target.files[0])}
                         id="audio-upload"
                       />
                       <label htmlFor="audio-upload" className="admin-file-label">
                         <Upload size={18} />
-                        <span>{audioFile ? audioFile.name : (editingSong?.audio_url ? 'Replace audio file...' : 'Choose audio file...')}</span>
+                        <span>
+                          {audioFile
+                            ? `${audioFile.name} (${formatFileSize(audioFile.size)})`
+                            : (editingSong?.audio_url ? 'Replace audio file...' : 'Choose audio file...')}
+                        </span>
                       </label>
+                      {audioFile && (
+                        <button type="button" onClick={() => setAudioFile(null)} className="admin-file-clear" title="Remove file">
+                          <X size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <button type="submit" disabled={uploadingSong} className="admin-submit-btn">
-                    {uploadingSong ? (
-                      <><Loader2 size={18} className="admin-spinner" /> Uploading...</>
-                    ) : (
-                      <><Save size={18} /> Save Song</>
+                  <div className="admin-form-actions">
+                    <button type="submit" disabled={uploadingSong} className="admin-submit-btn">
+                      {uploadingSong ? (
+                        <><Loader2 size={18} className="admin-spinner" /> Uploading...</>
+                      ) : (
+                        <><Save size={18} /> Save Song</>
+                      )}
+                    </button>
+                    {uploadingSong && (
+                      <button type="button" onClick={handleCancelUpload} className="admin-cancel-btn">
+                        <X size={16} /> Cancel
+                      </button>
                     )}
-                  </button>
+                  </div>
                 </form>
               </div>
             </div>

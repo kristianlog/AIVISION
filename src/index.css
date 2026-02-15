@@ -1626,6 +1626,51 @@ input:focus {
   opacity: 0.6;
   cursor: not-allowed;
 }
+.admin-form-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.admin-cancel-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 20px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  color: #fca5a5;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: auto;
+  margin: 0;
+  transition: all 0.2s ease;
+}
+.admin-cancel-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+.admin-file-input {
+  position: relative;
+}
+.admin-file-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(239, 68, 68, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fca5a5;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+}
 
 /* Admin Songs List */
 .admin-empty {
