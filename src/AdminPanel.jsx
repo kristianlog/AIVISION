@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from './supabaseClient';
+import SONGS from './songs';
 import {
   ArrowLeft, Upload, Music, Video, Trash2, Plus, Save, X, Film,
   CheckCircle, AlertCircle, Loader2, Pencil
@@ -11,6 +12,14 @@ const AdminPanel = ({ onBack, userProfile }) => {
   const [countryVideos, setCountryVideos] = useState({});
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
+
+  // Merge built-in songs with custom songs (custom overrides built-in by ID)
+  const allSongs = useMemo(() => {
+    const customMap = new Map(songs.map(s => [s.id, s]));
+    const merged = SONGS.map(s => customMap.has(s.id) ? { ...s, ...customMap.get(s.id), _isBuiltIn: true } : { ...s, _isBuiltIn: true });
+    const customOnly = songs.filter(s => !SONGS.some(b => b.id === s.id)).map(s => ({ ...s, _isBuiltIn: false }));
+    return [...merged, ...customOnly];
+  }, [songs]);
 
   // Song form state
   const [showSongForm, setShowSongForm] = useState(false);
@@ -276,7 +285,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
       {activeSection === 'songs' && (
         <div className="admin-section">
           <div className="admin-section-header">
-            <h2>Custom Songs</h2>
+            <h2>All Songs</h2>
             <button onClick={handleOpenNewSong} className="admin-add-btn">
               <Plus size={18} />
               <span>Add Song</span>
@@ -392,39 +401,35 @@ const AdminPanel = ({ onBack, userProfile }) => {
           )}
 
           {/* Songs List */}
-          {songs.length === 0 ? (
-            <div className="admin-empty">
-              <Music size={40} />
-              <p>No custom songs yet</p>
-              <p className="admin-empty-sub">Add songs from the button above. They'll appear alongside the built-in songs.</p>
-            </div>
-          ) : (
-            <div className="admin-songs-list">
-              {songs.map(song => (
-                <div key={song.id} className="admin-song-row">
-                  <span className="admin-song-flag">{song.flag}</span>
-                  <div className="admin-song-info">
-                    <p className="admin-song-title">{song.title}</p>
-                    <p className="admin-song-meta">{song.artist} — {song.country}</p>
-                  </div>
-                  <div className="admin-song-badges">
-                    {song.audio_url && (
-                      <span className="admin-badge admin-badge-audio">
-                        <Music size={12} /> Audio
-                      </span>
-                    )}
-                    <span className="admin-badge">{song.genre}</span>
-                  </div>
-                  <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song">
-                    <Pencil size={16} />
-                  </button>
+          <div className="admin-songs-list">
+            {allSongs.map(song => (
+              <div key={song.id} className="admin-song-row">
+                <span className="admin-song-flag">{song.flag}</span>
+                <div className="admin-song-info">
+                  <p className="admin-song-title">{song.title}</p>
+                  <p className="admin-song-meta">{song.artist} — {song.country}</p>
+                </div>
+                <div className="admin-song-badges">
+                  {song.audio_url ? (
+                    <span className="admin-badge admin-badge-audio">
+                      <Music size={12} /> Audio
+                    </span>
+                  ) : (
+                    <span className="admin-badge admin-badge-noaudio">No audio</span>
+                  )}
+                  <span className="admin-badge">{song.genre}</span>
+                </div>
+                <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song / upload audio">
+                  <Pencil size={16} />
+                </button>
+                {!song._isBuiltIn && (
                   <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
                     <Trash2 size={16} />
                   </button>
-                </div>
-              ))}
-            </div>
-          )}
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
