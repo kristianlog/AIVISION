@@ -112,15 +112,33 @@ const AdminPanel = ({ onBack, userProfile }) => {
         const abortController = new AbortController();
         uploadAbortRef.current = abortController;
 
+        // Also add a 30s timeout
+        const timeoutId = setTimeout(() => abortController.abort(), 30000);
+
         const ext = audioFile.name.split('.').pop();
         const songId = editingSong ? editingSong.id : songForm.id.toLowerCase().replace(/\s+/g, '-');
         const fileName = `songs/${songId}_${Date.now()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('media')
-          .upload(fileName, audioFile, { signal: abortController.signal });
 
+        let uploadResult;
+        try {
+          uploadResult = await supabase.storage
+            .from('media')
+            .upload(fileName, audioFile, { signal: abortController.signal });
+        } catch (uploadErr) {
+          clearTimeout(timeoutId);
+          uploadAbortRef.current = null;
+          if (uploadErr.name === 'AbortError') {
+            throw new Error('Upload timed out or was cancelled. Check your Supabase storage bucket "media" exists.');
+          }
+          throw uploadErr;
+        }
+
+        clearTimeout(timeoutId);
         uploadAbortRef.current = null;
-        if (uploadError) throw uploadError;
+
+        if (uploadResult.error) {
+          throw new Error(`Upload failed: ${uploadResult.error.message}. Make sure the "media" storage bucket exists in Supabase.`);
+        }
 
         const { data: urlData } = supabase.storage
           .from('media')
@@ -140,11 +158,17 @@ const AdminPanel = ({ onBack, userProfile }) => {
         lyrics_timing: editingSong?.lyrics_timing || [],
       };
 
-      const { error } = await supabase
+      // Save to DB with a 10s timeout
+      const savePromise = supabase
         .from('custom_songs')
         .upsert(songData, { onConflict: 'id' });
 
-      if (error) throw error;
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Save timed out. Make sure the "custom_songs" table exists in Supabase (run SUPABASE_MIGRATION.sql).')), 10000)
+      );
+
+      const { error } = await Promise.race([savePromise, timeoutPromise]);
+      if (error) throw new Error(`Save failed: ${error.message}`);
 
       showMessage('Song saved successfully!');
       setShowSongForm(false);
@@ -153,7 +177,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
       setAudioFile(null);
       loadData();
     } catch (err) {
-      showMessage(err.message, 'error');
+      showMessage(err.message || 'Something went wrong', 'error');
     } finally {
       setUploadingSong(false);
     }
@@ -432,7 +456,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
                   <div className="admin-form-actions">
                     <button type="submit" disabled={uploadingSong} className="admin-submit-btn">
                       {uploadingSong ? (
-                        <><Loader2 size={18} className="admin-spinner" /> Uploading...</>
+                        <><Loader2 size={18} className="admin-spinner" /> {audioFile ? 'Uploading audio...' : 'Saving...'}</>
                       ) : (
                         <><Save size={18} /> Save Song</>
                       )}
