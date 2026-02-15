@@ -30,6 +30,23 @@ Before you start, make sure you have **Node.js** installed on your computer.
 
 ## Getting Started (Step by Step)
 
+### 0. Get the project files on your computer
+
+If you don't have the files yet, you need to download them:
+
+**Option A: Using Git (recommended)**
+```bash
+git clone https://github.com/kristianlog/AIVISION.git
+cd AIVISION
+```
+
+**Option B: Download ZIP**
+1. Go to https://github.com/kristianlog/AIVISION
+2. Click the green "Code" button
+3. Click "Download ZIP"
+4. Extract the ZIP file
+5. Open a terminal in the extracted folder
+
 ### 1. Open a terminal and navigate to the project folder
 
 ```bash
@@ -175,6 +192,26 @@ Try deleting `node_modules` and the lock file, then reinstalling:
 rm -rf node_modules package-lock.json
 npm install
 ```
+
+### Can't create account or login - getting errors
+
+**This happens because the Supabase database needs to be set up first.** You have 3 options:
+
+**Option A: Set up the database (recommended)**
+1. The app uses a pre-configured Supabase project that may not have the database tables
+2. See `SUPABASE_SETUP.md` for detailed instructions to create the required tables
+3. Or create your own free Supabase project at https://supabase.com
+
+**Option B: Use without authentication (quick test)**
+The app will still work for browsing songs, but you won't be able to save votes or see the leaderboard. To test the UI without auth, you'd need to modify the code.
+
+**Option C: Get the repository with working backend**
+If you cloned/downloaded this from GitHub, make sure you have the latest version with proper Supabase configuration.
+
+**Common error messages:**
+- "relation 'profiles' does not exist" → Database tables not created (see `SUPABASE_SETUP.md`)
+- "Email not confirmed" → Either confirm the email sent to your inbox, or disable email confirmation in Supabase settings
+- Network errors → Check your internet connection and that Supabase is accessible
 
 ---
 
