@@ -355,7 +355,9 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
                 {isPlaying ? <Pause size={20} /> : <Play size={20} />}
               </button>
               <div className="song-player-progress" ref={progressRef} onMouseDown={handleProgressDrag} onTouchStart={handleProgressDrag}>
-                <div className="song-player-progress-fill" style={{ width: `${progressPct}%` }} />
+                <div className="song-player-progress-track">
+                  <div className="song-player-progress-fill" style={{ width: `${progressPct}%` }} />
+                </div>
               </div>
               <span className="song-player-time">
                 {formatTime(currentTime)} / {formatTime(duration)}

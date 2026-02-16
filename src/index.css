@@ -705,17 +705,18 @@ input:focus {
 }
 .song-player-progress {
   flex: 1;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  padding: 8px 0;
   cursor: pointer;
   position: relative;
-  overflow: hidden;
-  padding: 6px 0;
-  background-clip: content-box;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+}
+.song-player-progress-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
 }
 .song-player-progress-fill {
   height: 100%;
