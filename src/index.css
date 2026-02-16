@@ -2637,17 +2637,6 @@ input:focus {
   animation: flagWave 3s linear infinite;
 }
 
-/* Active lyrics line uses flag color */
-.detail-lyrics-playing .lyrics-line-active.detail-lyrics-line,
-.detail-lyrics-playing .lyrics-line-active.detail-lyrics-section {
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--flag-color-1) 20%, transparent),
-    color-mix(in srgb, var(--flag-color-2) 20%, transparent)
-  );
-  text-shadow: 0 0 12px color-mix(in srgb, var(--flag-color-1) 50%, transparent);
-}
-
 /* ─── Song Ordering (Admin) ──────────────────────────── */
 .admin-order-btns {
   display: flex;
