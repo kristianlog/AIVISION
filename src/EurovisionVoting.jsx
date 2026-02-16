@@ -105,10 +105,15 @@ const EurovisionVoting = ({ userProfile }) => {
       try {
         const { data } = await supabase.from('custom_songs').select('*');
         if (data && data.length > 0) {
-          // Merge custom songs with built-in songs (custom songs first)
-          const customSongIds = new Set(data.map(s => s.id));
-          const builtInFiltered = SONGS.filter(s => !customSongIds.has(s.id));
-          setAllSongs([...data, ...builtInFiltered]);
+          // Merge custom songs with built-in songs, respect sort_order
+          const customMap = new Map(data.map(s => [s.id, s]));
+          const merged = SONGS.map((s, i) => customMap.has(s.id)
+            ? { ...s, ...customMap.get(s.id), sort_order: customMap.get(s.id).sort_order ?? i }
+            : { ...s, sort_order: s.sort_order ?? i });
+          const customOnly = data.filter(s => !SONGS.some(b => b.id === s.id))
+            .map((s, i) => ({ ...s, sort_order: s.sort_order ?? 100 + i }));
+          const all = [...merged, ...customOnly].sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+          setAllSongs(all);
         }
       } catch {
         // Custom songs table may not exist yet

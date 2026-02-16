@@ -143,7 +143,7 @@ const Leaderboard = ({ songs, userVotes, allVotes, allRatings = [] }) => {
         )
       )}
 
-      {/* Votes view */}
+      {/* Votes view — Live Standings */}
       {view === 'votes' && (
         !hasAnyVotes ? (
           <div className="leaderboard-empty">
@@ -151,34 +151,49 @@ const Leaderboard = ({ songs, userVotes, allVotes, allRatings = [] }) => {
             <p className="leaderboard-empty-title">No votes yet!</p>
             <p className="leaderboard-empty-sub">Be the first to vote for your favorites.</p>
           </div>
-        ) : (
-          <div className="leaderboard-list">
-            {voteRankings.map((song, index) => (
-              <div
-                key={song.id}
-                className={`leaderboard-row ${index < 3 && song.totalPoints > 0 ? 'leaderboard-row-top' : ''}`}
-              >
-                <div className="leaderboard-row-rank">
-                  {getRankIcon(index)}
-                </div>
-                <div className="leaderboard-row-flag">{song.flag}</div>
-                <div className="leaderboard-row-info">
-                  <p className="leaderboard-row-title">{song.title}</p>
-                  <p className="leaderboard-row-meta">{song.artist} &mdash; {song.country}</p>
-                </div>
-                <div className="leaderboard-row-stats">
-                  <span className="leaderboard-row-points">{song.totalPoints} pts</span>
-                  <span className="leaderboard-row-voters">{song.voterCount} vote{song.voterCount !== 1 ? 's' : ''}</span>
-                </div>
-                {song.userScore && (
-                  <div className="leaderboard-row-yourvote">
-                    You: {song.userScore}
+        ) : (() => {
+          // Find the top score and count how many share it
+          const topScore = voteRankings[0]?.totalPoints || 0;
+          const leadersCount = voteRankings.filter(s => s.totalPoints === topScore && s.totalPoints > 0).length;
+          const isTied = leadersCount > 1;
+
+          return (
+            <div className="leaderboard-list">
+              {voteRankings.map((song, index) => {
+                const isLeading = song.totalPoints === topScore && song.totalPoints > 0;
+
+                return (
+                  <div
+                    key={song.id}
+                    className={`leaderboard-row ${isLeading ? 'standings-leading' : ''} ${index < 3 && song.totalPoints > 0 ? 'leaderboard-row-top' : ''}`}
+                  >
+                    <div className="leaderboard-row-rank">
+                      {getRankIcon(index)}
+                    </div>
+                    <div className="leaderboard-row-flag">{song.flag}</div>
+                    <div className="leaderboard-row-info">
+                      <p className="leaderboard-row-title">
+                        {isLeading && <span className="standings-crown" title={isTied ? 'Tied for the lead!' : 'Currently leading!'}>👑</span>}
+                        {song.title}
+                        {isLeading && isTied && <span className="standings-tied-label">Tied</span>}
+                      </p>
+                      <p className="leaderboard-row-meta">{song.artist} &mdash; {song.country}</p>
+                    </div>
+                    <div className="leaderboard-row-stats">
+                      <span className="leaderboard-row-points">{song.totalPoints} pts</span>
+                      <span className="leaderboard-row-voters">{song.voterCount} vote{song.voterCount !== 1 ? 's' : ''}</span>
+                    </div>
+                    {song.userScore && (
+                      <div className="leaderboard-row-yourvote">
+                        You: {song.userScore}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )
+                );
+              })}
+            </div>
+          );
+        })()
       )}
 
       {/* Compare view */}

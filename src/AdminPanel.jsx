@@ -4,7 +4,7 @@ import SONGS from './songs';
 import LyricsTimingEditor from './LyricsTimingEditor';
 import {
   ArrowLeft, Upload, Music, Video, Trash2, Plus, Save, X, Film,
-  CheckCircle, AlertCircle, Loader2, Pencil, Clock
+  CheckCircle, AlertCircle, Loader2, Pencil, Clock, ChevronUp, ChevronDown, Users
 } from 'lucide-react';
 
 // Country name → ISO 3166-1 alpha-2 code (for auto-flag)
@@ -39,12 +39,15 @@ const AdminPanel = ({ onBack, userProfile }) => {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
 
-  // Merge built-in songs with custom songs (custom overrides built-in by ID)
+  // Merge built-in songs with custom songs (custom overrides built-in by ID), sorted by sort_order
   const allSongs = useMemo(() => {
     const customMap = new Map(songs.map(s => [s.id, s]));
-    const merged = SONGS.map(s => customMap.has(s.id) ? { ...s, ...customMap.get(s.id), _isBuiltIn: true } : { ...s, _isBuiltIn: true });
-    const customOnly = songs.filter(s => !SONGS.some(b => b.id === s.id)).map(s => ({ ...s, _isBuiltIn: false }));
-    return [...merged, ...customOnly];
+    const merged = SONGS.map((s, i) => customMap.has(s.id)
+      ? { ...s, ...customMap.get(s.id), _isBuiltIn: true, sort_order: customMap.get(s.id).sort_order ?? i }
+      : { ...s, _isBuiltIn: true, sort_order: s.sort_order ?? i });
+    const customOnly = songs.filter(s => !SONGS.some(b => b.id === s.id))
+      .map((s, i) => ({ ...s, _isBuiltIn: false, sort_order: s.sort_order ?? 100 + i }));
+    return [...merged, ...customOnly].sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
   }, [songs]);
 
   // Song form state
@@ -60,6 +63,10 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
   // Lyrics timing editor state
   const [timingEditorSong, setTimingEditorSong] = useState(null);
+
+  // User management state
+  const [allVotes, setAllVotes] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
 
   // Video upload state
   const [videoUploading, setVideoUploading] = useState({});
@@ -97,6 +104,18 @@ const AdminPanel = ({ onBack, userProfile }) => {
           setCountryVideos(videoMap);
         }
       } catch { /* table may not exist yet */ }
+
+      // Load all votes for user management
+      try {
+        const { data: votesData, error } = await supabase.from('votes').select('*');
+        if (!error) setAllVotes(votesData || []);
+      } catch { /* table may not exist yet */ }
+
+      // Load user profiles
+      try {
+        const { data: usersData, error } = await supabase.from('profiles').select('*');
+        if (!error) setAllUsers(usersData || []);
+      } catch { /* profiles table may not exist yet */ }
     } catch (err) {
       console.error('Error loading admin data:', err);
     }
@@ -216,6 +235,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
         audio_url: audioUrl || (editingSong?.audio_url ?? null),
         cover_url: coverUrl || (editingSong?.cover_url ?? null),
         lyrics_timing: editingSong?.lyrics_timing || [],
+        sort_order: editingSong?.sort_order ?? allSongs.length,
       };
 
       // Save to DB with a 10s timeout
@@ -249,6 +269,33 @@ const AdminPanel = ({ onBack, userProfile }) => {
     try {
       await supabase.from('custom_songs').delete().eq('id', songId);
       showMessage('Song deleted');
+      loadData();
+    } catch (err) {
+      showMessage(err.message, 'error');
+    }
+  };
+
+  const handleReorderSong = async (songIndex, direction) => {
+    const swapIndex = songIndex + direction;
+    if (swapIndex < 0 || swapIndex >= allSongs.length) return;
+
+    const songA = allSongs[songIndex];
+    const songB = allSongs[swapIndex];
+
+    // Swap sort_order values
+    const orderA = songA.sort_order ?? songIndex;
+    const orderB = songB.sort_order ?? swapIndex;
+
+    try {
+      // Save both songs with swapped order to custom_songs
+      const saveOne = (s, newOrder) => supabase.from('custom_songs').upsert({
+        id: s.id, country: s.country, flag: s.flag, artist: s.artist,
+        title: s.title, genre: s.genre, lyrics: s.lyrics || '',
+        audio_url: s.audio_url || null, cover_url: s.cover_url || null,
+        lyrics_timing: s.lyrics_timing || [], sort_order: newOrder,
+      }, { onConflict: 'id' });
+
+      await Promise.all([saveOne(songA, orderB), saveOne(songB, orderA)]);
       loadData();
     } catch (err) {
       showMessage(err.message, 'error');
@@ -295,6 +342,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
           audio_url: song.audio_url || null,
           cover_url: song.cover_url || null,
           lyrics_timing: timingArray,
+          sort_order: song.sort_order ?? 0,
         };
         const { error } = await supabase
           .from('custom_songs')
@@ -426,7 +474,14 @@ const AdminPanel = ({ onBack, userProfile }) => {
           className={`admin-tab ${activeSection === 'videos' ? 'admin-tab-active' : ''}`}
         >
           <Film size={18} />
-          <span>Country Videos</span>
+          <span>Videos</span>
+        </button>
+        <button
+          onClick={() => setActiveSection('users')}
+          className={`admin-tab ${activeSection === 'users' ? 'admin-tab-active' : ''}`}
+        >
+          <Users size={18} />
+          <span>Users</span>
         </button>
       </div>
 
@@ -605,8 +660,17 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
           {/* Songs List */}
           <div className="admin-songs-list">
-            {allSongs.map(song => (
+            {allSongs.map((song, idx) => (
               <div key={song.id} className="admin-song-row">
+                <div className="admin-order-btns">
+                  <button onClick={() => handleReorderSong(idx, -1)} className="admin-order-btn" title="Move up" disabled={idx === 0}>
+                    <ChevronUp size={14} />
+                  </button>
+                  <span className="admin-order-num">{idx + 1}</span>
+                  <button onClick={() => handleReorderSong(idx, 1)} className="admin-order-btn" title="Move down" disabled={idx === allSongs.length - 1}>
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
                 <span className="admin-song-flag">{song.flag}</span>
                 <div className="admin-song-info">
                   <p className="admin-song-title">{song.title}</p>
@@ -717,6 +781,86 @@ const AdminPanel = ({ onBack, userProfile }) => {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Users Section */}
+      {activeSection === 'users' && (
+        <div className="admin-section">
+          <div className="admin-section-header">
+            <h2>User Votes</h2>
+            <p className="admin-section-desc">See who has voted and their vote breakdown.</p>
+          </div>
+
+          {(() => {
+            // Group votes by user
+            const userVoteMap = {};
+            allVotes.forEach(v => {
+              if (!userVoteMap[v.user_id]) userVoteMap[v.user_id] = [];
+              userVoteMap[v.user_id].push(v);
+            });
+
+            const userEntries = Object.entries(userVoteMap)
+              .map(([userId, votes]) => {
+                const profile = allUsers.find(u => u.id === userId);
+                const totalPts = votes.reduce((s, v) => s + v.score, 0);
+                return { userId, votes, profile, totalPts, voteCount: votes.length };
+              })
+              .sort((a, b) => b.totalPts - a.totalPts);
+
+            if (userEntries.length === 0) {
+              return (
+                <div className="ev-empty">
+                  <Users size={48} className="ev-empty-icon" />
+                  <p className="ev-empty-title">No votes yet</p>
+                  <p className="ev-empty-sub">Votes will appear here once users start voting.</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="admin-users-list">
+                {userEntries.map(({ userId, votes, profile, totalPts, voteCount }) => (
+                  <div key={userId} className="admin-user-row">
+                    <div className="admin-user-avatar">
+                      {(profile?.display_name || profile?.email || userId).charAt(0).toUpperCase()}
+                    </div>
+                    <div className="admin-user-info">
+                      <p className="admin-user-name">
+                        {profile?.display_name || profile?.email || `User ${userId.slice(0, 8)}...`}
+                      </p>
+                      <div className="admin-user-votes">
+                        {votes
+                          .sort((a, b) => b.score - a.score)
+                          .slice(0, 8)
+                          .map(v => {
+                            const song = allSongs.find(s => s.id === v.song_id);
+                            return (
+                              <span key={v.song_id} className="admin-user-vote-chip">
+                                {song?.flag || ''} {v.score}pts
+                              </span>
+                            );
+                          })}
+                        {votes.length > 8 && (
+                          <span className="admin-user-vote-chip">+{votes.length - 8} more</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="admin-user-stats">
+                      <div className="admin-user-stat">
+                        <span className="admin-user-stat-value">{voteCount}</span>
+                        <span className="admin-user-stat-label">Votes</span>
+                      </div>
+                      <div className="admin-user-stat">
+                        <span className="admin-user-stat-value">{totalPts}</span>
+                        <span className="admin-user-stat-label">Points</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 

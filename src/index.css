@@ -2591,3 +2591,208 @@ input:focus {
     font-size: 2.5rem;
   }
 }
+
+/* ─── Flag Color Dynamic Effects ─────────────────────── */
+@keyframes flagGlow {
+  0%, 100% {
+    border-color: var(--flag-color-1);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--flag-color-1) 30%, transparent),
+                0 0 60px color-mix(in srgb, var(--flag-color-2) 15%, transparent);
+  }
+  33% {
+    border-color: var(--flag-color-2);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--flag-color-2) 30%, transparent),
+                0 0 60px color-mix(in srgb, var(--flag-color-3) 15%, transparent);
+  }
+  66% {
+    border-color: var(--flag-color-3);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--flag-color-3) 30%, transparent),
+                0 0 60px color-mix(in srgb, var(--flag-color-1) 15%, transparent);
+  }
+}
+
+@keyframes flagWave {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.detail-modal-playing {
+  animation: flagGlow 4s ease-in-out infinite;
+  border-width: 2px;
+}
+
+.detail-lyrics-playing {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)) padding-box,
+    linear-gradient(
+      90deg,
+      var(--flag-color-1),
+      var(--flag-color-2),
+      var(--flag-color-3),
+      var(--flag-color-1)
+    ) border-box;
+  background-size: 100% 100%, 300% 100%;
+  animation: flagWave 3s linear infinite;
+}
+
+/* Active lyrics line uses flag color */
+.detail-lyrics-playing .lyrics-line-active.detail-lyrics-line,
+.detail-lyrics-playing .lyrics-line-active.detail-lyrics-section {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--flag-color-1) 20%, transparent),
+    color-mix(in srgb, var(--flag-color-2) 20%, transparent)
+  );
+  text-shadow: 0 0 12px color-mix(in srgb, var(--flag-color-1) 50%, transparent);
+}
+
+/* ─── Song Ordering (Admin) ──────────────────────────── */
+.admin-order-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.admin-order-btn {
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(196, 181, 253, 0.5);
+  cursor: pointer;
+  width: auto;
+  margin: 0;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-order-btn:hover {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+  border-color: rgba(139, 92, 246, 0.4);
+}
+.admin-order-num {
+  font-size: 0.7rem;
+  color: rgba(196, 181, 253, 0.3);
+  min-width: 20px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* ─── User Management (Admin) ────────────────────────── */
+.admin-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.admin-user-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+.admin-user-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.admin-user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+.admin-user-info {
+  flex: 1;
+}
+.admin-user-name {
+  color: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin: 0 0 2px;
+}
+.admin-user-meta {
+  color: rgba(196, 181, 253, 0.5);
+  font-size: 0.8rem;
+  margin: 0;
+}
+.admin-user-stats {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.admin-user-stat {
+  text-align: center;
+}
+.admin-user-stat-value {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #a78bfa;
+}
+.admin-user-stat-label {
+  display: block;
+  font-size: 0.65rem;
+  color: rgba(196, 181, 253, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.admin-user-votes {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.admin-user-vote-chip {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.15);
+  color: rgba(196, 181, 253, 0.7);
+  white-space: nowrap;
+}
+
+/* ─── Preview Badge ──────────────────────────────────── */
+.preview-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fbbf24;
+  background: rgba(234, 179, 8, 0.15);
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ─── Live Standings ─────────────────────────────────── */
+.standings-crown {
+  font-size: 1.2rem;
+  margin-right: 4px;
+}
+.standings-leading {
+  background: rgba(251, 191, 36, 0.08) !important;
+  border-color: rgba(251, 191, 36, 0.25) !important;
+}
+.standings-tied-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.15);
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-left: 6px;
+}

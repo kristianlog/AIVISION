@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Star, Check, Play, Pause, SkipBack } from 'lucide-react';
+import { X, Star, Check, Play, Pause, SkipBack, Timer } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import useFlagColors from './useFlagColors';
 
 const POINTS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
 
@@ -32,6 +33,24 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   const [ratingSaved, setRatingSaved] = useState(false);
 
   const hasAudio = !!song.audio_url;
+  const [previewMode, setPreviewMode] = useState(false);
+  const previewTimerRef = useRef(null);
+
+  // Flag colors for dynamic effects
+  const flagColors = useFlagColors(song.flag);
+
+  // Dynamic style vars for flag color glow (active when playing)
+  const flagColorStyle = useMemo(() => {
+    if (!flagColors || !isPlaying) return {};
+    const c1 = flagColors[0] || '#8b5cf6';
+    const c2 = flagColors[1] || flagColors[0] || '#ec4899';
+    const c3 = flagColors[2] || c1;
+    return {
+      '--flag-color-1': c1,
+      '--flag-color-2': c2,
+      '--flag-color-3': c3,
+    };
+  }, [flagColors, isPlaying]);
 
   // Parse lyrics
   const lines = useMemo(() => {
@@ -126,26 +145,36 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     }
   }, [currentLine, isPlaying]);
 
+  const cancelPreview = useCallback(() => {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    setPreviewMode(false);
+  }, []);
+
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    cancelPreview();
     if (isPlaying) {
       audio.pause();
     } else {
       audio.play();
     }
     setIsPlaying(!isPlaying);
-  }, [isPlaying]);
+  }, [isPlaying, cancelPreview]);
 
   const restart = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    cancelPreview();
     audio.pause();
     audio.currentTime = 0;
     setCurrentTime(0);
     setCurrentLine(-1);
     setIsPlaying(false);
-  }, []);
+  }, [cancelPreview]);
 
   const seekTo = useCallback((e) => {
     const audio = audioRef.current;
@@ -167,6 +196,35 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
       }
     }
   }, [lineTimeMap, isPlaying]);
+
+  const playPreview = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    // Start preview from 25% into the song (the good part), or 0 if short
+    const startAt = duration > 60 ? duration * 0.25 : 0;
+    audio.currentTime = startAt;
+    audio.play();
+    setIsPlaying(true);
+    setPreviewMode(true);
+
+    // Stop after 30 seconds
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = setTimeout(() => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+      setPreviewMode(false);
+    }, 30000);
+  }, [duration]);
+
+  // Clean up preview timer on unmount
+  useEffect(() => {
+    return () => {
+      if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    };
+  }, []);
 
   const handleVote = useCallback(() => {
     setShowConfirmation(true);
@@ -271,7 +329,11 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
 
   return (
     <div className="detail-overlay" onClick={onClose}>
-      <div className="detail-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`detail-modal ${isPlaying && flagColors ? 'detail-modal-playing' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+        style={flagColorStyle}
+      >
         {/* Background video */}
         {videoUrl && (
           <div className="detail-bg-video">
@@ -316,6 +378,10 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
               <span className="song-player-time">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
+              <button onClick={playPreview} className="song-player-btn" title="Play 30s preview">
+                <Timer size={16} />
+              </button>
+              {previewMode && <span className="preview-badge">30s Preview</span>}
             </div>
           </div>
         )}
@@ -323,7 +389,7 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
         {/* Lyrics */}
         <div className="detail-lyrics-container">
           <h3 className="detail-lyrics-heading">Lyrics</h3>
-          <div className="detail-lyrics" ref={lyricsRef}>
+          <div className={`detail-lyrics ${isPlaying && flagColors ? 'detail-lyrics-playing' : ''}`} ref={lyricsRef} style={flagColorStyle}>
             {lines.map((line, i) => {
               if (line.isEmpty) return <div key={i} className="lyrics-line-spacer" />;
 
