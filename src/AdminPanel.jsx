@@ -467,21 +467,18 @@ const AdminPanel = ({ onBack, userProfile }) => {
     }
   };
 
-  // Country list for video uploads
-  const COUNTRIES = [
-    { id: 'sweden', name: 'Sweden', flag: '\u{1F1F8}\u{1F1EA}' },
-    { id: 'italy', name: 'Italy', flag: '\u{1F1EE}\u{1F1F9}' },
-    { id: 'ukraine', name: 'Ukraine', flag: '\u{1F1FA}\u{1F1E6}' },
-    { id: 'france', name: 'France', flag: '\u{1F1EB}\u{1F1F7}' },
-    { id: 'norway', name: 'Norway', flag: '\u{1F1F3}\u{1F1F4}' },
-    { id: 'spain', name: 'Spain', flag: '\u{1F1EA}\u{1F1F8}' },
-    { id: 'greece', name: 'Greece', flag: '\u{1F1EC}\u{1F1F7}' },
-    { id: 'finland', name: 'Finland', flag: '\u{1F1EB}\u{1F1EE}' },
-    { id: 'switzerland', name: 'Switzerland', flag: '\u{1F1E8}\u{1F1ED}' },
-    { id: 'ireland', name: 'Ireland', flag: '\u{1F1EE}\u{1F1EA}' },
-    { id: 'albania', name: 'Albania', flag: '\u{1F1E6}\u{1F1F1}' },
-    { id: 'netherlands', name: 'Netherlands', flag: '\u{1F1F3}\u{1F1F1}' },
-  ];
+  // Country list for video uploads — derived from all songs so new countries appear automatically
+  const videoCountries = useMemo(() => {
+    const seen = new Set();
+    return allSongs
+      .filter(s => {
+        const key = s.id;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map(s => ({ id: s.id, name: s.country, flag: s.flag }));
+  }, [allSongs]);
 
   if (loading) {
     return (
@@ -772,7 +769,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
           </div>
 
           <div className="admin-videos-grid">
-            {COUNTRIES.map(country => {
+            {videoCountries.map(country => {
               const video = countryVideos[country.id];
               const uploading = videoUploading[country.id];
 
