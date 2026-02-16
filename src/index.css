@@ -714,7 +714,7 @@ input:focus {
 }
 .song-player-progress-track {
   height: 6px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 3px;
   overflow: hidden;
 }
