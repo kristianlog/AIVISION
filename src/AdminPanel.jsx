@@ -7,6 +7,31 @@ import {
   CheckCircle, AlertCircle, Loader2, Pencil, Clock
 } from 'lucide-react';
 
+// Country name → ISO 3166-1 alpha-2 code (for auto-flag)
+const COUNTRY_TO_ISO = {
+  albania: 'AL', andorra: 'AD', armenia: 'AM', australia: 'AU', austria: 'AT',
+  azerbaijan: 'AZ', belarus: 'BY', belgium: 'BE', 'bosnia and herzegovina': 'BA',
+  bulgaria: 'BG', croatia: 'HR', cyprus: 'CY', 'czech republic': 'CZ', czechia: 'CZ',
+  denmark: 'DK', estonia: 'EE', finland: 'FI', france: 'FR', georgia: 'GE',
+  germany: 'DE', greece: 'GR', hungary: 'HU', iceland: 'IS', ireland: 'IE',
+  israel: 'IL', italy: 'IT', kazakhstan: 'KZ', latvia: 'LV', liechtenstein: 'LI',
+  lithuania: 'LT', luxembourg: 'LU', malta: 'MT', moldova: 'MD', monaco: 'MC',
+  montenegro: 'ME', morocco: 'MA', netherlands: 'NL', 'north macedonia': 'MK',
+  norway: 'NO', poland: 'PL', portugal: 'PT', romania: 'RO', russia: 'RU',
+  'san marino': 'SM', serbia: 'RS', slovakia: 'SK', slovenia: 'SI', spain: 'ES',
+  sweden: 'SE', switzerland: 'CH', turkey: 'TR', ukraine: 'UA', 'united kingdom': 'GB',
+  uk: 'GB', usa: 'US', 'united states': 'US',
+};
+
+// Convert ISO code to flag emoji (each letter → regional indicator symbol)
+const isoToFlag = (iso) =>
+  [...iso.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('');
+
+const getAutoFlag = (countryName) => {
+  const iso = COUNTRY_TO_ISO[countryName.trim().toLowerCase()];
+  return iso ? isoToFlag(iso) : '';
+};
+
 const AdminPanel = ({ onBack, userProfile }) => {
   const [activeSection, setActiveSection] = useState('songs');
   const [songs, setSongs] = useState([]);
@@ -29,6 +54,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
     id: '', country: '', flag: '', artist: '', title: '', genre: '', lyrics: ''
   });
   const [audioFile, setAudioFile] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
   const [uploadingSong, setUploadingSong] = useState(false);
   const uploadAbortRef = useRef(null);
 
@@ -84,6 +110,16 @@ const AdminPanel = ({ onBack, userProfile }) => {
   };
 
   const MAX_AUDIO_SIZE = 20 * 1024 * 1024; // 20MB
+  const MAX_COVER_SIZE = 10 * 1024 * 1024; // 10MB
+
+  const handleCoverFileSelect = (file) => {
+    if (!file) return;
+    if (file.size > MAX_COVER_SIZE) {
+      showMessage(`Cover file too large (${formatFileSize(file.size)}). Max 10MB.`, 'error');
+      return;
+    }
+    setCoverFile(file);
+  };
 
   const handleAudioFileSelect = (file) => {
     if (!file) return;
@@ -110,6 +146,25 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
     try {
       let audioUrl = null;
+      let coverUrl = null;
+
+      // Upload cover art if provided
+      if (coverFile) {
+        const ext = coverFile.name.split('.').pop();
+        const songId = editingSong ? editingSong.id : songForm.id.toLowerCase().replace(/\s+/g, '-');
+        const fileName = `covers/${songId}_${Date.now()}.${ext}`;
+
+        const { error: coverErr } = await supabase.storage
+          .from('media')
+          .upload(fileName, coverFile);
+
+        if (coverErr) throw new Error(`Cover upload failed: ${coverErr.message}`);
+
+        const { data: coverUrlData } = supabase.storage
+          .from('media')
+          .getPublicUrl(fileName);
+        coverUrl = coverUrlData.publicUrl;
+      }
 
       // Upload audio file if provided
       if (audioFile) {
@@ -159,6 +214,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
         genre: songForm.genre,
         lyrics: songForm.lyrics,
         audio_url: audioUrl || (editingSong?.audio_url ?? null),
+        cover_url: coverUrl || (editingSong?.cover_url ?? null),
         lyrics_timing: editingSong?.lyrics_timing || [],
       };
 
@@ -179,6 +235,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
       setEditingSong(null);
       setSongForm({ id: '', country: '', flag: '', artist: '', title: '', genre: '', lyrics: '' });
       setAudioFile(null);
+      setCoverFile(null);
       loadData();
     } catch (err) {
       showMessage(err.message || 'Something went wrong', 'error');
@@ -210,6 +267,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
       lyrics: song.lyrics || '',
     });
     setAudioFile(null);
+    setCoverFile(null);
     setShowSongForm(true);
   };
 
@@ -217,6 +275,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
     setEditingSong(null);
     setSongForm({ id: '', country: '', flag: '', artist: '', title: '', genre: '', lyrics: '' });
     setAudioFile(null);
+    setCoverFile(null);
     setShowSongForm(true);
   };
 
@@ -234,6 +293,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
           genre: song.genre,
           lyrics: song.lyrics || '',
           audio_url: song.audio_url || null,
+          cover_url: song.cover_url || null,
           lyrics_timing: timingArray,
         };
         const { error } = await supabase
@@ -398,8 +458,17 @@ const AdminPanel = ({ onBack, userProfile }) => {
                       <input
                         type="text"
                         value={songForm.country}
-                        onChange={e => setSongForm(f => ({ ...f, country: e.target.value, id: e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
-                        placeholder="e.g. Sweden"
+                        onChange={e => {
+                          const val = e.target.value;
+                          const autoFlag = getAutoFlag(val);
+                          setSongForm(f => ({
+                            ...f,
+                            country: val,
+                            id: val.toLowerCase().replace(/\s+/g, '-'),
+                            ...(autoFlag ? { flag: autoFlag } : {}),
+                          }));
+                        }}
+                        placeholder="e.g. Denmark"
                         required
                         readOnly={!!editingSong}
                         style={editingSong ? { opacity: 0.6 } : {}}
@@ -486,10 +555,39 @@ const AdminPanel = ({ onBack, userProfile }) => {
                       )}
                     </div>
                   </div>
+                  <div className="admin-form-field">
+                    <label>Cover Art — image or mp4 (optional, max 10MB)</label>
+                    {editingSong?.cover_url && !coverFile && (
+                      <p style={{ fontSize: '0.8rem', color: 'rgba(196,181,253,0.7)', margin: '0 0 6px' }}>
+                        Current: cover attached. Upload a new file to replace it.
+                      </p>
+                    )}
+                    <div className="admin-file-input">
+                      <input
+                        type="file"
+                        accept="image/*,video/mp4"
+                        onChange={e => handleCoverFileSelect(e.target.files[0])}
+                        id="cover-upload"
+                      />
+                      <label htmlFor="cover-upload" className="admin-file-label">
+                        <Upload size={18} />
+                        <span>
+                          {coverFile
+                            ? `${coverFile.name} (${formatFileSize(coverFile.size)})`
+                            : (editingSong?.cover_url ? 'Replace cover art...' : 'Choose cover art...')}
+                        </span>
+                      </label>
+                      {coverFile && (
+                        <button type="button" onClick={() => setCoverFile(null)} className="admin-file-clear" title="Remove file">
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   <div className="admin-form-actions">
                     <button type="submit" disabled={uploadingSong} className="admin-submit-btn">
                       {uploadingSong ? (
-                        <><Loader2 size={18} className="admin-spinner" /> {audioFile ? 'Uploading audio...' : 'Saving...'}</>
+                        <><Loader2 size={18} className="admin-spinner" /> {audioFile || coverFile ? 'Uploading...' : 'Saving...'}</>
                       ) : (
                         <><Save size={18} /> Save Song</>
                       )}

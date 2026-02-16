@@ -45,7 +45,6 @@ const SongCard = ({ song, userScore, onClick, videoUrl }) => {
 
       <div className="song-card-flag">{song.flag}</div>
       <div className="song-card-body">
-        <span className="song-card-genre">{song.genre}</span>
         <h3 className="song-card-title">{song.title}</h3>
         <p className="song-card-artist">{song.artist}</p>
         <p className="song-card-country">{song.country}</p>
