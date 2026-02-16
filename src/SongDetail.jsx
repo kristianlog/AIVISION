@@ -11,7 +11,7 @@ const formatTime = (s) => {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 };
 
-const SongDetail = ({ song, userScore, onVote, onClose, userProfile }) => {
+const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl }) => {
   const [selectedIndex, setSelectedIndex] = useState(
     userScore ? POINTS.indexOf(userScore) : 4
   );
@@ -218,6 +218,20 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile }) => {
   return (
     <div className="detail-overlay" onClick={onClose}>
       <div className="detail-modal" onClick={(e) => e.stopPropagation()}>
+        {/* Background video */}
+        {videoUrl && (
+          <div className="detail-bg-video">
+            <video
+              src={videoUrl}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="detail-bg-video-el"
+            />
+          </div>
+        )}
+
         <button onClick={onClose} className="detail-close">
           <X size={20} />
         </button>

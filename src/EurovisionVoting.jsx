@@ -266,6 +266,7 @@ const EurovisionVoting = ({ userProfile }) => {
           onVote={handleVote}
           onClose={() => setSelectedSong(null)}
           userProfile={userProfile}
+          videoUrl={countryVideos[selectedSong.id]}
         />
       )}
     </div>
