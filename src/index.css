@@ -409,6 +409,103 @@ input:focus {
   font-size: 0.9rem;
   margin: 2px 0;
   line-height: 1.6;
+  transition: all 0.2s ease;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+/* Song Player */
+.song-player {
+  margin-bottom: 16px;
+}
+.song-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+}
+.song-player-btn {
+  background: none;
+  border: none;
+  color: rgba(196, 181, 253, 0.6);
+  cursor: pointer;
+  padding: 4px;
+  width: auto;
+  margin: 0;
+  transition: color 0.2s;
+}
+.song-player-btn:hover {
+  color: #c4b5fd;
+}
+.song-player-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  border: none;
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.song-player-play:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+}
+.song-player-progress {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.song-player-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8b5cf6, #ec4899);
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+.song-player-time {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+  color: rgba(196, 181, 253, 0.5);
+  white-space: nowrap;
+  min-width: 85px;
+  text-align: right;
+}
+
+/* Lyrics line states during playback */
+.lyrics-line-active.detail-lyrics-line,
+.lyrics-line-active.detail-lyrics-section {
+  color: white;
+  font-weight: 600;
+  background: rgba(139, 92, 246, 0.15);
+}
+.lyrics-line-past.detail-lyrics-line {
+  color: rgba(255, 255, 255, 0.4);
+}
+.lyrics-line-past.detail-lyrics-section {
+  color: rgba(167, 139, 250, 0.3);
+}
+.lyrics-line-clickable {
+  cursor: pointer;
+}
+.lyrics-line-clickable:hover {
+  background: rgba(139, 92, 246, 0.1);
+  color: white;
+}
+.lyrics-line-spacer {
+  height: 8px;
 }
 
 /* ─── Voting Points ────────────────────────────────────── */
@@ -1410,40 +1507,6 @@ input:focus {
 }
 
 /* Lyrics Toggle Button */
-.detail-lyrics-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.lyrics-toggle-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: 8px;
-  background: rgba(139, 92, 246, 0.1);
-  color: rgba(167, 139, 250, 0.7);
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  width: auto;
-  margin: 0;
-  transition: all 0.2s ease;
-}
-
-.lyrics-toggle-btn:hover {
-  background: rgba(139, 92, 246, 0.2);
-}
-
-.lyrics-toggle-active {
-  background: rgba(139, 92, 246, 0.3);
-  border-color: #8b5cf6;
-  color: white;
-}
-
 /* ─── Song Card Video Overlay ─────────────────────────── */
 .song-card {
   position: relative;
