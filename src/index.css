@@ -711,6 +711,11 @@ input:focus {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  padding: 6px 0;
+  background-clip: content-box;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .song-player-progress-fill {
   height: 100%;

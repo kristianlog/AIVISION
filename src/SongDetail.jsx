@@ -23,6 +23,7 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   // Audio state
   const audioRef = useRef(null);
   const lyricsRef = useRef(null);
+  const progressRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -164,13 +165,35 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     setIsPlaying(false);
   }, []);
 
-  const seekTo = useCallback((e) => {
+  const seekFromEvent = useCallback((clientX) => {
     const audio = audioRef.current;
-    if (!audio || !duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const bar = progressRef.current;
+    if (!audio || !duration || !bar) return;
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     audio.currentTime = pct * duration;
   }, [duration]);
+
+  const handleProgressDrag = useCallback((e) => {
+    e.preventDefault();
+    const startX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+    seekFromEvent(startX);
+
+    const onMove = (ev) => {
+      const x = ev.type === 'touchmove' ? ev.touches[0].clientX : ev.clientX;
+      seekFromEvent(x);
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove);
+    window.addEventListener('touchend', onUp);
+  }, [seekFromEvent]);
 
   const seekToLine = useCallback((lineIndex) => {
     const audio = audioRef.current;
@@ -331,7 +354,7 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
               <button onClick={togglePlay} className="song-player-play" title={isPlaying ? 'Pause' : 'Play'}>
                 {isPlaying ? <Pause size={20} /> : <Play size={20} />}
               </button>
-              <div className="song-player-progress" onClick={seekTo}>
+              <div className="song-player-progress" ref={progressRef} onMouseDown={handleProgressDrag} onTouchStart={handleProgressDrag}>
                 <div className="song-player-progress-fill" style={{ width: `${progressPct}%` }} />
               </div>
               <span className="song-player-time">
