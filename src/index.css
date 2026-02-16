@@ -2762,20 +2762,28 @@ input:focus {
   white-space: nowrap;
 }
 
-/* ─── Preview Badge ──────────────────────────────────── */
-.preview-badge {
+/* ─── Preview Button ─────────────────────────────────── */
+.song-player-preview-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.7rem;
+  gap: 5px;
+  font-size: 0.72rem;
   font-weight: 600;
   color: #fbbf24;
-  background: rgba(234, 179, 8, 0.15);
-  padding: 3px 8px;
-  border-radius: 6px;
-  margin-left: 8px;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  padding: 4px 10px;
+  border-radius: 8px;
+  cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.song-player-preview-btn:hover {
+  background: rgba(234, 179, 8, 0.22);
+  border-color: rgba(234, 179, 8, 0.4);
 }
 
 /* ─── Live Standings ─────────────────────────────────── */
