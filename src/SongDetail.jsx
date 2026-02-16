@@ -344,7 +344,7 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
         {/* Lyrics */}
         <div className="detail-lyrics-container">
           <h3 className="detail-lyrics-heading">Lyrics</h3>
-          <div className={`detail-lyrics ${isPlaying && flagColors ? 'detail-lyrics-playing' : ''}`} ref={lyricsRef} style={flagColorStyle}>
+          <div className="detail-lyrics" ref={lyricsRef}>
             {lines.map((line, i) => {
               if (line.isEmpty) return <div key={i} className="lyrics-line-spacer" />;
 

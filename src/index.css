@@ -2611,31 +2611,11 @@ input:focus {
   }
 }
 
-@keyframes flagWave {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
 .detail-modal-playing {
   animation: flagGlow 4s ease-in-out infinite;
   border-width: 2px;
 }
 
-.detail-lyrics-playing {
-  border: 1px solid transparent;
-  background:
-    linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)) padding-box,
-    linear-gradient(
-      90deg,
-      var(--flag-color-1),
-      var(--flag-color-2),
-      var(--flag-color-3),
-      var(--flag-color-1)
-    ) border-box;
-  background-size: 100% 100%, 300% 100%;
-  animation: flagWave 3s linear infinite;
-}
 
 /* ─── Song Ordering (Admin) ──────────────────────────── */
 .admin-order-btns {
