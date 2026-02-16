@@ -31,6 +31,8 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   const [ratings, setRatings] = useState({ lyrics: 5, melody: 5, memorable: 5 });
   const [ratingSaved, setRatingSaved] = useState(false);
 
+  const hasAudio = !!song.audio_url;
+
   // Parse lyrics
   const lines = useMemo(() => {
     if (!song.lyrics) return [];
@@ -265,7 +267,6 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     return '#fbbf24';
   };
 
-  const hasAudio = !!song.audio_url;
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
