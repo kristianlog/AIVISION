@@ -223,8 +223,8 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     setIsPlaying(true);
     setPreviewMode(true);
 
-    const FADE_IN_MS = 1000;
-    const FADE_OUT_MS = 2000;
+    const FADE_IN_MS = 3000;
+    const FADE_OUT_MS = 1000;
     const PREVIEW_MS = 30000;
     const STEP = 50; // update every 50ms
 
