@@ -37,9 +37,9 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   // Flag colors for dynamic effects
   const flagColors = useFlagColors(song.flag);
 
-  // Dynamic style vars for flag color glow (active when playing)
+  // Always set CSS vars so transitions work smoothly when pausing
   const flagColorStyle = useMemo(() => {
-    if (!flagColors || !isPlaying) return {};
+    if (!flagColors) return {};
     const c1 = flagColors[0] || '#8b5cf6';
     const c2 = flagColors[1] || flagColors[0] || '#ec4899';
     const c3 = flagColors[2] || c1;
@@ -48,7 +48,7 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
       '--flag-color-2': c2,
       '--flag-color-3': c3,
     };
-  }, [flagColors, isPlaying]);
+  }, [flagColors]);
 
   // Parse lyrics
   const lines = useMemo(() => {
