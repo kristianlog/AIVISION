@@ -229,38 +229,42 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
                 key={line.index}
                 className={`timing-line-row ${isActive ? 'timing-line-active' : ''} ${isNext ? 'timing-line-next' : ''}`}
               >
-                <span className="timing-line-text">{line.text}</span>
-                <input
-                  type="text"
-                  className="timing-input"
-                  value={hasTime ? formatTime(timings[line.index]) : ''}
-                  placeholder="0:00"
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    // Allow typing, parse on blur
-                    setTimings(prev => ({ ...prev, [line.index]: val }));
-                  }}
-                  onBlur={(e) => {
-                    const parsed = parseTime(e.target.value);
-                    if (parsed !== null) {
-                      setTimings(prev => ({ ...prev, [line.index]: parsed }));
-                    } else if (e.target.value === '') {
-                      setTimings(prev => {
-                        const next = { ...prev };
-                        delete next[line.index];
-                        return next;
-                      });
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => stampLine(line.index)}
-                  className="timing-stamp-btn"
-                  title="Stamp current time"
-                >
-                  Stamp
-                </button>
+                <div className="timing-line-content">
+                  <span className="timing-line-text">{line.text}</span>
+                  <div className="timing-line-controls">
+                    <input
+                      type="text"
+                      className="timing-input"
+                      value={hasTime ? formatTime(timings[line.index]) : ''}
+                      placeholder="0:00"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        // Allow typing, parse on blur
+                        setTimings(prev => ({ ...prev, [line.index]: val }));
+                      }}
+                      onBlur={(e) => {
+                        const parsed = parseTime(e.target.value);
+                        if (parsed !== null) {
+                          setTimings(prev => ({ ...prev, [line.index]: parsed }));
+                        } else if (e.target.value === '') {
+                          setTimings(prev => {
+                            const next = { ...prev };
+                            delete next[line.index];
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => stampLine(line.index)}
+                      className="timing-stamp-btn"
+                      title="Stamp current time"
+                    >
+                      Stamp
+                    </button>
+                  </div>
+                </div>
               </div>
             );
           })}
