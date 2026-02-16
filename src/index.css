@@ -126,6 +126,209 @@ input:focus {
   margin: 0;
 }
 
+.ev-progress-indicator {
+  margin-top: 20px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ev-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.ev-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6);
+  border-radius: 20px;
+  transition: width 0.4s ease;
+  animation: shimmer 2s linear infinite;
+  background-size: 200% 100%;
+}
+
+.ev-progress-text {
+  font-size: 0.9rem;
+  color: rgba(196, 181, 253, 0.8);
+  margin: 0;
+  font-weight: 500;
+}
+
+.ev-progress-complete {
+  color: #34d399;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* ─── Badges ──────────────────────────────────────────── */
+.ev-badges {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.ev-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: default;
+  transition: all 0.2s ease;
+  animation: fadeIn 0.3s ease;
+}
+
+.ev-badge:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+/* ─── Undo Toast ──────────────────────────────────────── */
+.undo-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(17, 24, 39, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 14px;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: slideUp 0.3s ease;
+  z-index: 9999;
+}
+
+.undo-toast-text {
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.undo-toast-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: 10px;
+  color: #a78bfa;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.undo-toast-btn:hover {
+  background: rgba(139, 92, 246, 0.3);
+  border-color: rgba(139, 92, 246, 0.6);
+  transform: translateY(-1px);
+}
+
+/* ─── Search and Filter ───────────────────────────────── */
+.ev-search-section {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.ev-search-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 250px;
+}
+
+.ev-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(196, 181, 253, 0.5);
+  pointer-events: none;
+}
+
+.ev-search-input {
+  width: 100%;
+  padding: 12px 40px 12px 44px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: white;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.ev-search-input::placeholder {
+  color: rgba(196, 181, 253, 0.4);
+}
+
+.ev-search-input:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.ev-search-clear {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px;
+  background: rgba(239, 68, 68, 0.15);
+  border: none;
+  border-radius: 6px;
+  color: rgba(252, 165, 165, 0.8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ev-search-clear:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.ev-genre-filter {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: white;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 160px;
+}
+
+.ev-genre-filter:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.ev-genre-filter option {
+  background: #1e1b4b;
+  color: white;
+}
+
 /* ─── Tab Navigation ───────────────────────────────────── */
 .ev-tabs {
   display: flex;
@@ -991,6 +1194,56 @@ input:focus {
   font-style: italic;
 }
 
+/* ─── Vote Comparison ──────────────────────────────────── */
+.leaderboard-comparison {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.comparison-scores {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+
+.comparison-you {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.comparison-avg {
+  color: rgba(196, 181, 253, 0.7);
+  font-weight: 500;
+}
+
+.comparison-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.comparison-higher {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.comparison-lower {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.comparison-close {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
 /* ─── Lyrics Timing Editor ─────────────────────────────── */
 .timing-editor-modal {
   max-width: 680px;
@@ -1423,6 +1676,152 @@ input:focus {
 .rating-save-btn:hover {
   background: rgba(167, 139, 250, 0.2);
   border-color: rgba(167, 139, 250, 0.5);
+}
+
+/* ─── Vote Confirmation Modal ─────────────────────────── */
+.confirmation-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.confirmation-modal {
+  background: linear-gradient(135deg, rgba(30, 27, 75, 0.95), rgba(17, 24, 39, 0.95));
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 20px;
+  padding: 28px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: slideUp 0.3s ease;
+}
+
+.confirmation-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 20px;
+  text-align: center;
+}
+
+.confirmation-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.confirmation-song {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.confirmation-flag {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.confirmation-song-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 4px;
+}
+
+.confirmation-song-artist {
+  font-size: 0.9rem;
+  color: rgba(196, 181, 253, 0.7);
+  margin: 0;
+}
+
+.confirmation-points {
+  text-align: center;
+  padding: 20px;
+  background: rgba(139, 92, 246, 0.1);
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+}
+
+.confirmation-points-value {
+  font-size: 4rem;
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 8px;
+  text-shadow: 0 0 20px currentColor;
+}
+
+.confirmation-points-label {
+  font-size: 0.95rem;
+  color: rgba(196, 181, 253, 0.6);
+  margin: 0 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+.confirmation-points-desc {
+  font-size: 1.1rem;
+  color: rgba(196, 181, 253, 0.9);
+  margin: 0;
+  font-weight: 600;
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.confirmation-cancel {
+  flex: 1;
+  padding: 12px 20px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  color: rgba(252, 165, 165, 0.9);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirmation-cancel:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.confirmation-confirm {
+  flex: 1;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+.confirmation-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.6);
 }
 
 /* ─── Lyrics Player ───────────────────────────────────── */

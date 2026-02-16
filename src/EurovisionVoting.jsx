@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Music, BarChart3, Heart } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Music, BarChart3, Heart, RotateCcw, Search, X as XIcon, Award, Trophy, Flame } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import SONGS from './songs';
 import SongCard from './SongCard';
@@ -23,6 +23,10 @@ const EurovisionVoting = ({ userProfile }) => {
   const [countryVideos, setCountryVideos] = useState({});
   const [allSongs, setAllSongs] = useState(SONGS);
   const [allRatings, setAllRatings] = useState([]);
+  const [lastVote, setLastVote] = useState(null);
+  const [showUndo, setShowUndo] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterGenre, setFilterGenre] = useState('all');
 
   const toFakeVotes = useCallback((votesMap) => {
     return Object.entries(votesMap).map(([song_id, score]) => ({
@@ -127,6 +131,10 @@ const EurovisionVoting = ({ userProfile }) => {
   }, [userProfile?.id, loadLocalVotes]);
 
   const handleVote = async (songId, score) => {
+    // Save previous state for undo
+    const previousScore = userVotes[songId] || null;
+    setLastVote({ songId, previousScore, newScore: score });
+
     const newVotes = { ...userVotes };
     if (score === null) {
       delete newVotes[songId];
@@ -134,6 +142,10 @@ const EurovisionVoting = ({ userProfile }) => {
       newVotes[songId] = score;
     }
     setUserVotes(newVotes);
+
+    // Show undo toast
+    setShowUndo(true);
+    setTimeout(() => setShowUndo(false), 5000);
 
     if (useLocal) {
       saveLocalVotes(newVotes);
@@ -163,14 +175,170 @@ const EurovisionVoting = ({ userProfile }) => {
     }
   };
 
+  const handleUndo = async () => {
+    if (!lastVote) return;
+
+    const { songId, previousScore } = lastVote;
+    const newVotes = { ...userVotes };
+
+    if (previousScore === null) {
+      delete newVotes[songId];
+    } else {
+      newVotes[songId] = previousScore;
+    }
+    setUserVotes(newVotes);
+    setShowUndo(false);
+    setLastVote(null);
+
+    if (useLocal) {
+      saveLocalVotes(newVotes);
+      return;
+    }
+
+    try {
+      if (previousScore === null) {
+        await supabase
+          .from('votes')
+          .delete()
+          .eq('user_id', userProfile.id)
+          .eq('song_id', songId);
+      } else {
+        await supabase
+          .from('votes')
+          .upsert({
+            user_id: userProfile.id,
+            song_id: songId,
+            score: previousScore,
+          }, { onConflict: 'user_id,song_id' });
+      }
+      const { data } = await supabase.from('votes').select('*');
+      if (data) setAllVotes(data);
+    } catch {
+      saveLocalVotes(newVotes);
+    }
+  };
+
+  // Filter and search songs
+  const filteredSongs = useMemo(() => {
+    let result = allSongs;
+
+    // Genre filter
+    if (filterGenre !== 'all') {
+      result = result.filter(s => s.genre.toLowerCase() === filterGenre.toLowerCase());
+    }
+
+    // Search query (by country, title, artist, genre)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(s =>
+        s.country.toLowerCase().includes(query) ||
+        s.title.toLowerCase().includes(query) ||
+        s.artist.toLowerCase().includes(query) ||
+        s.genre.toLowerCase().includes(query)
+      );
+    }
+
+    return result;
+  }, [allSongs, searchQuery, filterGenre]);
+
+  // Get unique genres for filter dropdown
+  const genres = useMemo(() => {
+    const uniqueGenres = [...new Set(allSongs.map(s => s.genre))];
+    return uniqueGenres.sort();
+  }, [allSongs]);
+
   const votedSongs = allSongs.filter((s) => userVotes[s.id]);
   const totalPoints = Object.values(userVotes).reduce((sum, v) => sum + v, 0);
+
+  // Calculate badges
+  const badges = useMemo(() => {
+    const result = [];
+
+    if (votedCount === totalSongs && totalSongs > 0) {
+      result.push({ icon: Trophy, label: 'Complete!', color: '#fbbf24', desc: 'Voted on all songs' });
+    } else if (votedCount >= 10) {
+      result.push({ icon: Flame, label: 'Power Voter', color: '#f97316', desc: '10+ songs voted' });
+    } else if (votedCount >= 5) {
+      result.push({ icon: Award, label: 'Active', color: '#8b5cf6', desc: '5+ songs voted' });
+    } else if (votedCount >= 1) {
+      result.push({ icon: Heart, label: 'First Vote', color: '#ec4899', desc: 'Cast your first vote' });
+    }
+
+    return result;
+  }, [votedCount, totalSongs]);
+
+  // Keyboard shortcuts for song navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Only handle if on songs tab
+      if (activeTab !== 'songs') return;
+
+      // If modal is open, navigate between songs
+      if (selectedSong) {
+        const currentIndex = allSongs.findIndex(s => s.id === selectedSong.id);
+
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          const nextIndex = (currentIndex + 1) % allSongs.length;
+          setSelectedSong(allSongs[nextIndex]);
+          e.preventDefault();
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          const prevIndex = currentIndex === 0 ? allSongs.length - 1 : currentIndex - 1;
+          setSelectedSong(allSongs[prevIndex]);
+          e.preventDefault();
+        }
+      } else {
+        // If no modal, open first song with Enter or arrow keys
+        if (e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          if (allSongs.length > 0) {
+            setSelectedSong(allSongs[0]);
+            e.preventDefault();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedSong, activeTab, allSongs]);
+
+  const votedCount = Object.keys(userVotes).length;
+  const totalSongs = allSongs.length;
+  const progressPercent = totalSongs > 0 ? (votedCount / totalSongs) * 100 : 0;
 
   return (
     <div className="ev-container">
       <div className="ev-hero">
         <h1 className="ev-title">AIVISION</h1>
         <p className="ev-subtitle">Vote for your favorite songs</p>
+        <div className="ev-progress-indicator">
+          <div className="ev-progress-bar">
+            <div
+              className="ev-progress-fill"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <p className="ev-progress-text">
+            {votedCount} / {totalSongs} songs voted
+            {votedCount === totalSongs && totalSongs > 0 && (
+              <span className="ev-progress-complete"> ✓ Complete!</span>
+            )}
+          </p>
+        </div>
+
+        {/* Badges */}
+        {badges.length > 0 && (
+          <div className="ev-badges">
+            {badges.map((badge, i) => {
+              const Icon = badge.icon;
+              return (
+                <div key={i} className="ev-badge" title={badge.desc}>
+                  <Icon size={16} style={{ color: badge.color }} />
+                  <span style={{ color: badge.color }}>{badge.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Tab Navigation */}
@@ -195,17 +363,60 @@ const EurovisionVoting = ({ userProfile }) => {
 
       {/* Songs Grid */}
       {activeTab === 'songs' && (
-        <div className="ev-songs-grid">
-          {allSongs.map((song) => (
-            <SongCard
-              key={song.id}
-              song={song}
-              userScore={userVotes[song.id]}
-              onClick={() => setSelectedSong(song)}
-              videoUrl={countryVideos[song.id]}
-            />
-          ))}
-        </div>
+        <>
+          {/* Search and Filter */}
+          <div className="ev-search-section">
+            <div className="ev-search-wrapper">
+              <Search size={18} className="ev-search-icon" />
+              <input
+                type="text"
+                placeholder="Search by country, title, artist, or genre..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="ev-search-input"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="ev-search-clear"
+                  title="Clear search"
+                >
+                  <XIcon size={16} />
+                </button>
+              )}
+            </div>
+            <select
+              value={filterGenre}
+              onChange={(e) => setFilterGenre(e.target.value)}
+              className="ev-genre-filter"
+            >
+              <option value="all">All Genres</option>
+              {genres.map(genre => (
+                <option key={genre} value={genre}>{genre}</option>
+              ))}
+            </select>
+          </div>
+
+          {filteredSongs.length === 0 ? (
+            <div className="ev-empty">
+              <Search size={48} className="ev-empty-icon" />
+              <p className="ev-empty-title">No songs found</p>
+              <p className="ev-empty-sub">Try adjusting your search or filter</p>
+            </div>
+          ) : (
+            <div className="ev-songs-grid">
+              {filteredSongs.map((song) => (
+                <SongCard
+                  key={song.id}
+                  song={song}
+                  userScore={userVotes[song.id]}
+                  onClick={() => setSelectedSong(song)}
+                  videoUrl={countryVideos[song.id]}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* My Votes */}
@@ -268,6 +479,19 @@ const EurovisionVoting = ({ userProfile }) => {
           userProfile={userProfile}
           videoUrl={countryVideos[selectedSong.id]}
         />
+      )}
+
+      {/* Undo Toast */}
+      {showUndo && lastVote && (
+        <div className="undo-toast">
+          <span className="undo-toast-text">
+            Vote {lastVote.newScore === null ? 'removed' : 'saved'}!
+          </span>
+          <button onClick={handleUndo} className="undo-toast-btn">
+            <RotateCcw size={16} />
+            Undo
+          </button>
+        </div>
       )}
     </div>
   );

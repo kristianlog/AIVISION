@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Trophy, Medal, Award, Star, BarChart3, Heart } from 'lucide-react';
+import { Trophy, Medal, Award, Star, BarChart3, Heart, Users } from 'lucide-react';
 
 const Leaderboard = ({ songs, userVotes, allVotes, allRatings = [] }) => {
-  const [view, setView] = useState('ratings'); // 'ratings' or 'votes'
+  const [view, setView] = useState('ratings'); // 'ratings', 'votes', or 'compare'
 
   // ── Ratings-based leaderboard ─────────────────────────
   const ratingsRankings = songs.map((song) => {
@@ -33,6 +33,23 @@ const Leaderboard = ({ songs, userVotes, allVotes, allRatings = [] }) => {
   });
 
   voteRankings.sort((a, b) => b.totalPoints - a.totalPoints);
+
+  // ── Vote comparison ────────────────────────────────────
+  const comparisonData = songs.map((song) => {
+    const songVotes = allVotes.filter((v) => v.song_id === song.id);
+    const userScore = userVotes[song.id];
+
+    if (!userScore || songVotes.length === 0) {
+      return { ...song, userScore: null, avgScore: 0, difference: 0, voterCount: songVotes.length };
+    }
+
+    const avgScore = songVotes.reduce((sum, v) => sum + v.score, 0) / songVotes.length;
+    const difference = userScore - avgScore;
+
+    return { ...song, userScore, avgScore, difference, voterCount: songVotes.length };
+  }).filter(s => s.userScore !== null);
+
+  comparisonData.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
 
   const getRankIcon = (index) => {
     if (index === 0) return <Trophy size={24} className="leaderboard-icon-gold" />;
@@ -68,6 +85,13 @@ const Leaderboard = ({ songs, userVotes, allVotes, allRatings = [] }) => {
         >
           <Heart size={16} />
           <span>Vote Points</span>
+        </button>
+        <button
+          onClick={() => setView('compare')}
+          className={`leaderboard-toggle-btn ${view === 'compare' ? 'leaderboard-toggle-active' : ''}`}
+        >
+          <Users size={16} />
+          <span>Compare</span>
         </button>
       </div>
 
@@ -153,6 +177,46 @@ const Leaderboard = ({ songs, userVotes, allVotes, allRatings = [] }) => {
                 )}
               </div>
             ))}
+          </div>
+        )
+      )}
+
+      {/* Compare view */}
+      {view === 'compare' && (
+        comparisonData.length === 0 ? (
+          <div className="leaderboard-empty">
+            <Users size={48} className="leaderboard-empty-icon" />
+            <p className="leaderboard-empty-title">No comparison data</p>
+            <p className="leaderboard-empty-sub">Vote on songs to see how your tastes compare to others!</p>
+          </div>
+        ) : (
+          <div className="leaderboard-list">
+            {comparisonData.map((song) => {
+              const isHigher = song.difference > 1;
+              const isLower = song.difference < -1;
+              const isClose = Math.abs(song.difference) <= 1;
+
+              return (
+                <div key={song.id} className="leaderboard-row">
+                  <div className="leaderboard-row-flag">{song.flag}</div>
+                  <div className="leaderboard-row-info">
+                    <p className="leaderboard-row-title">{song.title}</p>
+                    <p className="leaderboard-row-meta">{song.artist} &mdash; {song.country}</p>
+                  </div>
+                  <div className="leaderboard-comparison">
+                    <div className="comparison-scores">
+                      <span className="comparison-you">You: {song.userScore}</span>
+                      <span className="comparison-avg">Avg: {song.avgScore.toFixed(1)}</span>
+                    </div>
+                    <div className={`comparison-badge ${isHigher ? 'comparison-higher' : isLower ? 'comparison-lower' : 'comparison-close'}`}>
+                      {isHigher && `+${song.difference.toFixed(1)} higher`}
+                      {isLower && `${song.difference.toFixed(1)} lower`}
+                      {isClose && '≈ Agree'}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )
       )}

@@ -17,6 +17,7 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   );
   const sliderValue = POINTS[selectedIndex] ?? POINTS[4];
   const [saved, setSaved] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   // Audio state
   const audioRef = useRef(null);
@@ -123,6 +124,58 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     }
   }, [currentLine, isPlaying]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't interfere if confirmation modal is open
+      if (showConfirmation) {
+        if (e.key === 'Escape') {
+          setShowConfirmation(false);
+          e.preventDefault();
+        }
+        if (e.key === 'Enter') {
+          confirmVote();
+          e.preventDefault();
+        }
+        return;
+      }
+
+      // Escape to close
+      if (e.key === 'Escape') {
+        onClose();
+        e.preventDefault();
+        return;
+      }
+
+      // Number keys for point selection (1-9, 0 for 10, - for 12)
+      const keyMap = {
+        '1': 0, '2': 1, '3': 2, '4': 3, '5': 4,
+        '6': 5, '7': 6, '8': 7, '9': 8, '0': 9
+      };
+      if (keyMap[e.key] !== undefined) {
+        setSelectedIndex(keyMap[e.key]);
+        e.preventDefault();
+        return;
+      }
+
+      // Space to play/pause
+      if (e.key === ' ' && hasAudio) {
+        togglePlay();
+        e.preventDefault();
+        return;
+      }
+
+      // Enter to vote
+      if (e.key === 'Enter') {
+        handleVote();
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showConfirmation, onClose, hasAudio, togglePlay, handleVote, confirmVote]);
+
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -166,7 +219,12 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   }, [lineTimeMap, isPlaying]);
 
   const handleVote = () => {
+    setShowConfirmation(true);
+  };
+
+  const confirmVote = () => {
     onVote(song.id, sliderValue);
+    setShowConfirmation(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   };
@@ -380,6 +438,40 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
             {ratingSaved ? <><Check size={16} /> Saved!</> : 'Save Ratings'}
           </button>
         </div>
+
+        {/* Vote Confirmation Modal */}
+        {showConfirmation && (
+          <div className="confirmation-overlay" onClick={() => setShowConfirmation(false)}>
+            <div className="confirmation-modal" onClick={(e) => e.stopPropagation()}>
+              <h3 className="confirmation-title">Confirm Your Vote</h3>
+              <div className="confirmation-content">
+                <div className="confirmation-song">
+                  <span className="confirmation-flag">{song.flag}</span>
+                  <div>
+                    <p className="confirmation-song-title">{song.title}</p>
+                    <p className="confirmation-song-artist">{song.artist}</p>
+                  </div>
+                </div>
+                <div className="confirmation-points">
+                  <div className="confirmation-points-value" style={{ color: getSliderColor(sliderValue) }}>
+                    {sliderValue}
+                  </div>
+                  <p className="confirmation-points-label">points</p>
+                  <p className="confirmation-points-desc">{getSliderLabel(sliderValue)}</p>
+                </div>
+              </div>
+              <div className="confirmation-actions">
+                <button onClick={() => setShowConfirmation(false)} className="confirmation-cancel">
+                  Cancel
+                </button>
+                <button onClick={confirmVote} className="confirmation-confirm">
+                  <Check size={18} />
+                  Confirm Vote
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
