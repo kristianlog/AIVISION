@@ -224,8 +224,11 @@ const AdminPanel = ({ onBack, userProfile }) => {
         audioUrl = urlData.publicUrl;
       }
 
-      const songData = {
-        id: editingSong ? editingSong.id : songForm.id.toLowerCase().replace(/\s+/g, '-'),
+      const songId = editingSong ? editingSong.id : songForm.id.toLowerCase().replace(/\s+/g, '-');
+
+      // Base columns (always present in the table)
+      const baseSongData = {
+        id: songId,
         country: songForm.country,
         flag: songForm.flag,
         artist: songForm.artist,
@@ -233,21 +236,37 @@ const AdminPanel = ({ onBack, userProfile }) => {
         genre: songForm.genre,
         lyrics: songForm.lyrics,
         audio_url: audioUrl || (editingSong?.audio_url ?? null),
-        cover_url: coverUrl || (editingSong?.cover_url ?? null),
         lyrics_timing: editingSong?.lyrics_timing || [],
+      };
+
+      // Extended columns (may not exist if migration hasn't been re-run)
+      const fullSongData = {
+        ...baseSongData,
+        cover_url: coverUrl || (editingSong?.cover_url ?? null),
         sort_order: editingSong?.sort_order ?? allSongs.length,
       };
 
-      // Save to DB with a 10s timeout
-      const savePromise = supabase
-        .from('custom_songs')
-        .upsert(songData, { onConflict: 'id' });
+      // Try with all columns first, fall back to base columns if schema is outdated
+      const trySave = async (data) => {
+        const savePromise = supabase
+          .from('custom_songs')
+          .upsert(data, { onConflict: 'id' });
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Save timed out. Make sure the "custom_songs" table exists in Supabase (run SUPABASE_MIGRATION.sql).')), 10000)
-      );
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Save timed out. Make sure the "custom_songs" table exists in Supabase (run SUPABASE_MIGRATION.sql).')), 10000)
+        );
 
-      const { error } = await Promise.race([savePromise, timeoutPromise]);
+        return Promise.race([savePromise, timeoutPromise]);
+      };
+
+      let { error } = await trySave(fullSongData);
+
+      // If save failed due to missing columns, retry with base columns only
+      if (error && error.message && (error.message.includes('cover_url') || error.message.includes('sort_order'))) {
+        const retry = await trySave(baseSongData);
+        error = retry.error;
+      }
+
       if (error) throw new Error(`Save failed: ${error.message}`);
 
       showMessage('Song saved successfully!');
@@ -288,14 +307,36 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
     try {
       // Save both songs with swapped order to custom_songs
-      const saveOne = (s, newOrder) => supabase.from('custom_songs').upsert({
+      const makeSongData = (s, newOrder) => ({
         id: s.id, country: s.country, flag: s.flag, artist: s.artist,
         title: s.title, genre: s.genre, lyrics: s.lyrics || '',
-        audio_url: s.audio_url || null, cover_url: s.cover_url || null,
-        lyrics_timing: s.lyrics_timing || [], sort_order: newOrder,
-      }, { onConflict: 'id' });
+        audio_url: s.audio_url || null, lyrics_timing: s.lyrics_timing || [],
+        cover_url: s.cover_url || null, sort_order: newOrder,
+      });
 
-      await Promise.all([saveOne(songA, orderB), saveOne(songB, orderA)]);
+      const saveOne = (data) => supabase.from('custom_songs').upsert(data, { onConflict: 'id' });
+
+      let results = await Promise.all([
+        saveOne(makeSongData(songA, orderB)),
+        saveOne(makeSongData(songB, orderA)),
+      ]);
+
+      // If failed due to missing columns, retry without cover_url/sort_order
+      if (results.some(r => r.error?.message?.includes('cover_url') || r.error?.message?.includes('sort_order'))) {
+        const makeBase = (s) => ({
+          id: s.id, country: s.country, flag: s.flag, artist: s.artist,
+          title: s.title, genre: s.genre, lyrics: s.lyrics || '',
+          audio_url: s.audio_url || null, lyrics_timing: s.lyrics_timing || [],
+        });
+        results = await Promise.all([saveOne(makeBase(songA)), saveOne(makeBase(songB))]);
+        if (!results.some(r => r.error)) {
+          showMessage('Reorder saved (run updated migration for full support)', 'success');
+        }
+      }
+
+      const firstError = results.find(r => r.error);
+      if (firstError?.error) throw new Error(firstError.error.message);
+
       loadData();
     } catch (err) {
       showMessage(err.message, 'error');
@@ -331,7 +372,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
       // First ensure the song exists in custom_songs (might be a built-in song)
       const song = allSongs.find(s => s.id === songId);
       if (song) {
-        const songData = {
+        const baseSongData = {
           id: song.id,
           country: song.country,
           flag: song.flag,
@@ -340,13 +381,25 @@ const AdminPanel = ({ onBack, userProfile }) => {
           genre: song.genre,
           lyrics: song.lyrics || '',
           audio_url: song.audio_url || null,
-          cover_url: song.cover_url || null,
           lyrics_timing: timingArray,
+        };
+        const fullSongData = {
+          ...baseSongData,
+          cover_url: song.cover_url || null,
           sort_order: song.sort_order ?? 0,
         };
-        const { error } = await supabase
+
+        let { error } = await supabase
           .from('custom_songs')
-          .upsert(songData, { onConflict: 'id' });
+          .upsert(fullSongData, { onConflict: 'id' });
+
+        // Retry without optional columns if schema is outdated
+        if (error && (error.message?.includes('cover_url') || error.message?.includes('sort_order'))) {
+          const retry = await supabase
+            .from('custom_songs')
+            .upsert(baseSongData, { onConflict: 'id' });
+          error = retry.error;
+        }
         if (error) throw error;
       }
       showMessage('Lyrics timing saved!');
