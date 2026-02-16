@@ -128,7 +128,7 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile }) => {
           </div>
 
           {showLyricsPlayer ? (
-            <LyricsPlayer lyrics={song.lyrics} audioUrl={song.audio_url} />
+            <LyricsPlayer lyrics={song.lyrics} audioUrl={song.audio_url} lyricsTiming={song.lyrics_timing} />
           ) : (
             <div className="detail-lyrics">
               {song.lyrics.split('\n').map((line, i) => {

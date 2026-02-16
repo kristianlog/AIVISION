@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Play, Pause, SkipBack } from 'lucide-react';
 
-const LyricsPlayer = ({ lyrics, audioUrl }) => {
+const LyricsPlayer = ({ lyrics, audioUrl, lyricsTiming }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentLine, setCurrentLine] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -18,6 +18,13 @@ const LyricsPlayer = ({ lyrics, audioUrl }) => {
         isEmpty: line.trim() === '',
       }))
     : [];
+
+  // Check if real timing data is available
+  const hasTimingData = lyricsTiming && Array.isArray(lyricsTiming) && lyricsTiming.length > 0;
+  const sortedTimings = useMemo(() => {
+    if (!hasTimingData) return [];
+    return [...lyricsTiming].sort((a, b) => a.time - b.time);
+  }, [lyricsTiming, hasTimingData]);
 
   // Auto-scroll lyrics based on audio progress or timer
   useEffect(() => {
@@ -64,9 +71,22 @@ const LyricsPlayer = ({ lyrics, audioUrl }) => {
       const pct = (audio.currentTime / audio.duration) * 100;
       setProgress(pct);
 
-      // Distribute lyrics evenly across audio duration
-      const lineIndex = Math.floor((audio.currentTime / audio.duration) * lines.length);
-      setCurrentLine(Math.min(lineIndex, lines.length - 1));
+      if (hasTimingData && sortedTimings.length > 0) {
+        // Use real timing data: find the last line whose timestamp <= currentTime
+        let activeLine = 0;
+        for (const entry of sortedTimings) {
+          if (entry.time <= audio.currentTime) {
+            activeLine = entry.line;
+          } else {
+            break;
+          }
+        }
+        setCurrentLine(activeLine);
+      } else {
+        // Fallback: distribute lyrics evenly across audio duration
+        const lineIndex = Math.floor((audio.currentTime / audio.duration) * lines.length);
+        setCurrentLine(Math.min(lineIndex, lines.length - 1));
+      }
     };
 
     const handleEnded = () => {

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from './supabaseClient';
 import SONGS from './songs';
+import LyricsTimingEditor from './LyricsTimingEditor';
 import {
   ArrowLeft, Upload, Music, Video, Trash2, Plus, Save, X, Film,
-  CheckCircle, AlertCircle, Loader2, Pencil
+  CheckCircle, AlertCircle, Loader2, Pencil, Clock
 } from 'lucide-react';
 
 const AdminPanel = ({ onBack, userProfile }) => {
@@ -30,6 +31,9 @@ const AdminPanel = ({ onBack, userProfile }) => {
   const [audioFile, setAudioFile] = useState(null);
   const [uploadingSong, setUploadingSong] = useState(false);
   const uploadAbortRef = useRef(null);
+
+  // Lyrics timing editor state
+  const [timingEditorSong, setTimingEditorSong] = useState(null);
 
   // Video upload state
   const [videoUploading, setVideoUploading] = useState({});
@@ -214,6 +218,35 @@ const AdminPanel = ({ onBack, userProfile }) => {
     setSongForm({ id: '', country: '', flag: '', artist: '', title: '', genre: '', lyrics: '' });
     setAudioFile(null);
     setShowSongForm(true);
+  };
+
+  const handleSaveTiming = async (songId, timingArray) => {
+    try {
+      // First ensure the song exists in custom_songs (might be a built-in song)
+      const song = allSongs.find(s => s.id === songId);
+      if (song) {
+        const songData = {
+          id: song.id,
+          country: song.country,
+          flag: song.flag,
+          artist: song.artist,
+          title: song.title,
+          genre: song.genre,
+          lyrics: song.lyrics || '',
+          audio_url: song.audio_url || null,
+          lyrics_timing: timingArray,
+        };
+        const { error } = await supabase
+          .from('custom_songs')
+          .upsert(songData, { onConflict: 'id' });
+        if (error) throw error;
+      }
+      showMessage('Lyrics timing saved!');
+      setTimingEditorSong(null);
+      loadData();
+    } catch (err) {
+      showMessage(err.message || 'Failed to save timing', 'error');
+    }
   };
 
   // ── Video Management ─────────────────────────────────────
@@ -489,11 +522,21 @@ const AdminPanel = ({ onBack, userProfile }) => {
                   ) : (
                     <span className="admin-badge admin-badge-noaudio">No audio</span>
                   )}
+                  {song.lyrics_timing && song.lyrics_timing.length > 0 && (
+                    <span className="admin-badge admin-badge-audio">
+                      <Clock size={12} /> Timed
+                    </span>
+                  )}
                   <span className="admin-badge">{song.genre}</span>
                 </div>
                 <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song / upload audio">
                   <Pencil size={16} />
                 </button>
+                {song.audio_url && song.lyrics && (
+                  <button onClick={() => setTimingEditorSong(song)} className="admin-edit-btn" title="Set lyrics timing">
+                    <Clock size={16} />
+                  </button>
+                )}
                 {!song._isBuiltIn && (
                   <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
                     <Trash2 size={16} />
@@ -577,6 +620,15 @@ const AdminPanel = ({ onBack, userProfile }) => {
             })}
           </div>
         </div>
+      )}
+
+      {/* Lyrics Timing Editor Modal */}
+      {timingEditorSong && (
+        <LyricsTimingEditor
+          song={timingEditorSong}
+          onSave={handleSaveTiming}
+          onClose={() => setTimingEditorSong(null)}
+        />
       )}
     </div>
   );
