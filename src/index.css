@@ -2594,27 +2594,10 @@ input:focus {
 }
 
 /* ─── Flag Color Dynamic Effects ─────────────────────── */
-@keyframes flagGlow {
-  0%, 100% {
-    border-color: var(--flag-color-1);
-    box-shadow: 0 0 20px color-mix(in srgb, var(--flag-color-1) 30%, transparent),
-                0 0 60px color-mix(in srgb, var(--flag-color-2) 15%, transparent);
-  }
-  33% {
-    border-color: var(--flag-color-2);
-    box-shadow: 0 0 20px color-mix(in srgb, var(--flag-color-2) 30%, transparent),
-                0 0 60px color-mix(in srgb, var(--flag-color-3) 15%, transparent);
-  }
-  66% {
-    border-color: var(--flag-color-3);
-    box-shadow: 0 0 20px color-mix(in srgb, var(--flag-color-3) 30%, transparent),
-                0 0 60px color-mix(in srgb, var(--flag-color-1) 15%, transparent);
-  }
-}
-
 .detail-modal-playing {
-  animation: flagGlow 4s ease-in-out infinite;
-  border-width: 2px;
+  border-color: var(--flag-color-1);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--flag-color-1) 30%, transparent),
+              0 0 50px color-mix(in srgb, var(--flag-color-2) 12%, transparent);
 }
 
 
