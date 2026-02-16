@@ -249,6 +249,9 @@ const EurovisionVoting = ({ userProfile }) => {
 
   const votedSongs = allSongs.filter((s) => userVotes[s.id]);
   const totalPoints = Object.values(userVotes).reduce((sum, v) => sum + v, 0);
+  const votedCount = Object.keys(userVotes).length;
+  const totalSongs = allSongs.length;
+  const progressPercent = totalSongs > 0 ? (votedCount / totalSongs) * 100 : 0;
 
   // Calculate badges
   const badges = useMemo(() => {
@@ -300,10 +303,6 @@ const EurovisionVoting = ({ userProfile }) => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedSong, activeTab, allSongs]);
-
-  const votedCount = Object.keys(userVotes).length;
-  const totalSongs = allSongs.length;
-  const progressPercent = totalSongs > 0 ? (votedCount / totalSongs) * 100 : 0;
 
   return (
     <div className="ev-container">

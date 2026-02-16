@@ -124,58 +124,6 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     }
   }, [currentLine, isPlaying]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Don't interfere if confirmation modal is open
-      if (showConfirmation) {
-        if (e.key === 'Escape') {
-          setShowConfirmation(false);
-          e.preventDefault();
-        }
-        if (e.key === 'Enter') {
-          confirmVote();
-          e.preventDefault();
-        }
-        return;
-      }
-
-      // Escape to close
-      if (e.key === 'Escape') {
-        onClose();
-        e.preventDefault();
-        return;
-      }
-
-      // Number keys for point selection (1-9, 0 for 10, - for 12)
-      const keyMap = {
-        '1': 0, '2': 1, '3': 2, '4': 3, '5': 4,
-        '6': 5, '7': 6, '8': 7, '9': 8, '0': 9
-      };
-      if (keyMap[e.key] !== undefined) {
-        setSelectedIndex(keyMap[e.key]);
-        e.preventDefault();
-        return;
-      }
-
-      // Space to play/pause
-      if (e.key === ' ' && hasAudio) {
-        togglePlay();
-        e.preventDefault();
-        return;
-      }
-
-      // Enter to vote
-      if (e.key === 'Enter') {
-        handleVote();
-        e.preventDefault();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showConfirmation, onClose, hasAudio, togglePlay, handleVote, confirmVote]);
-
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -218,16 +166,63 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     }
   }, [lineTimeMap, isPlaying]);
 
-  const handleVote = () => {
+  const handleVote = useCallback(() => {
     setShowConfirmation(true);
-  };
+  }, []);
 
-  const confirmVote = () => {
+  const confirmVote = useCallback(() => {
     onVote(song.id, sliderValue);
     setShowConfirmation(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
-  };
+  }, [onVote, song.id, sliderValue]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (showConfirmation) {
+        if (e.key === 'Escape') {
+          setShowConfirmation(false);
+          e.preventDefault();
+        }
+        if (e.key === 'Enter') {
+          confirmVote();
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        onClose();
+        e.preventDefault();
+        return;
+      }
+
+      const keyMap = {
+        '1': 0, '2': 1, '3': 2, '4': 3, '5': 4,
+        '6': 5, '7': 6, '8': 7, '9': 8, '0': 9
+      };
+      if (keyMap[e.key] !== undefined) {
+        setSelectedIndex(keyMap[e.key]);
+        e.preventDefault();
+        return;
+      }
+
+      if (e.key === ' ' && hasAudio) {
+        togglePlay();
+        e.preventDefault();
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        handleVote();
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showConfirmation, onClose, hasAudio, togglePlay, handleVote, confirmVote]);
 
   const handleClearVote = () => {
     onVote(song.id, null);
