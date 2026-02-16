@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Star, Check, Play, Pause, SkipBack, Timer } from 'lucide-react';
+import { X, Star, Check, Play, Pause, SkipBack } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import useFlagColors from './useFlagColors';
 
@@ -33,9 +33,6 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   const [ratingSaved, setRatingSaved] = useState(false);
 
   const hasAudio = !!song.audio_url;
-  const [previewMode, setPreviewMode] = useState(false);
-  const previewTimerRef = useRef(null);
-  const fadeIntervalRef = useRef(null);
 
   // Flag colors for dynamic effects
   const flagColors = useFlagColors(song.flag);
@@ -146,44 +143,26 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     }
   }, [currentLine, isPlaying]);
 
-  const cancelPreview = useCallback(() => {
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-    if (fadeIntervalRef.current) {
-      clearInterval(fadeIntervalRef.current);
-      fadeIntervalRef.current = null;
-    }
-    // Restore full volume
-    if (audioRef.current) audioRef.current.volume = 1;
-    setPreviewMode(false);
-  }, []);
-
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    cancelPreview();
-    audio.volume = 1;
     if (isPlaying) {
       audio.pause();
     } else {
       audio.play();
     }
     setIsPlaying(!isPlaying);
-  }, [isPlaying, cancelPreview]);
+  }, [isPlaying]);
 
   const restart = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    cancelPreview();
-    audio.volume = 1;
     audio.pause();
     audio.currentTime = 0;
     setCurrentTime(0);
     setCurrentLine(-1);
     setIsPlaying(false);
-  }, [cancelPreview]);
+  }, []);
 
   const seekTo = useCallback((e) => {
     const audio = audioRef.current;
@@ -205,73 +184,6 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
       }
     }
   }, [lineTimeMap, isPlaying]);
-
-  const playPreview = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    // Clear any existing preview/fade
-    cancelPreview();
-
-    // Start preview from 25% into the song (the good part), or 0 if short
-    const startAt = duration > 60 ? duration * 0.25 : 0;
-    audio.currentTime = startAt;
-
-    // Fade in: start silent, ramp up over 1s
-    audio.volume = 0;
-    audio.play();
-    setIsPlaying(true);
-    setPreviewMode(true);
-
-    const FADE_IN_MS = 3000;
-    const FADE_OUT_MS = 1000;
-    const PREVIEW_MS = 30000;
-    const STEP = 50; // update every 50ms
-
-    // Fade in
-    let fadeInElapsed = 0;
-    fadeIntervalRef.current = setInterval(() => {
-      fadeInElapsed += STEP;
-      if (audioRef.current) {
-        audioRef.current.volume = Math.min(1, fadeInElapsed / FADE_IN_MS);
-      }
-      if (fadeInElapsed >= FADE_IN_MS) {
-        clearInterval(fadeIntervalRef.current);
-        fadeIntervalRef.current = null;
-        if (audioRef.current) audioRef.current.volume = 1;
-      }
-    }, STEP);
-
-    // Schedule fade out, then stop
-    previewTimerRef.current = setTimeout(() => {
-      // Fade out over 2s
-      let fadeOutElapsed = 0;
-      fadeIntervalRef.current = setInterval(() => {
-        fadeOutElapsed += STEP;
-        if (audioRef.current) {
-          audioRef.current.volume = Math.max(0, 1 - fadeOutElapsed / FADE_OUT_MS);
-        }
-        if (fadeOutElapsed >= FADE_OUT_MS) {
-          clearInterval(fadeIntervalRef.current);
-          fadeIntervalRef.current = null;
-          if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.volume = 1;
-          }
-          setIsPlaying(false);
-          setPreviewMode(false);
-        }
-      }, STEP);
-    }, PREVIEW_MS - FADE_OUT_MS);
-  }, [duration, cancelPreview]);
-
-  // Clean up preview timer + fade on unmount
-  useEffect(() => {
-    return () => {
-      if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
-      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
-    };
-  }, []);
 
   const handleVote = useCallback(() => {
     setShowConfirmation(true);
@@ -425,10 +337,6 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
               <span className="song-player-time">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
-              <button onClick={playPreview} className="song-player-preview-btn" title="Play a 30-second preview of this song">
-                <Timer size={14} />
-                <span>{previewMode ? '30s Preview' : 'Preview'}</span>
-              </button>
             </div>
           </div>
         )}
