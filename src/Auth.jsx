@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { supabase } from './supabaseClient';
+import { useTheme } from './ThemeContext';
 import { User, Mail, Lock, Eye, EyeOff, X } from 'lucide-react';
 
 const Auth = ({ onAuthSuccess }) => {
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -183,11 +185,17 @@ const Auth = ({ onAuthSuccess }) => {
 
         {/* Logo */}
         <div style={{textAlign: 'center', marginBottom: '2rem'}}>
-          <div style={{marginBottom: '1rem'}}>
-            <span style={{color: 'rgba(255,255,255,0.8)', fontSize: '18px'}}>✦ ✧ </span>
-            <span style={{color: 'white', fontSize: '24px', fontWeight: 'bold', margin: '0 8px'}}>AIVISION</span>
-            <span style={{color: 'rgba(255,255,255,0.8)', fontSize: '18px'}}> ✧ ✦</span>
-          </div>
+          {theme.logoUrl ? (
+            <div style={{marginBottom: '1rem'}}>
+              <img src={theme.logoUrl} alt="" style={{ maxHeight: 48, maxWidth: 180, objectFit: 'contain' }} />
+            </div>
+          ) : (
+            <div style={{marginBottom: '1rem'}}>
+              <span style={{color: 'rgba(255,255,255,0.8)', fontSize: '18px'}}>✦ ✧ </span>
+              <span style={{color: 'white', fontSize: '24px', fontWeight: 'bold', margin: '0 8px'}}>{theme.appName}</span>
+              <span style={{color: 'rgba(255,255,255,0.8)', fontSize: '18px'}}> ✧ ✦</span>
+            </div>
+          )}
           <h2 style={{color: 'white', fontSize: '20px', fontWeight: '600', margin: '0 0 8px 0'}}>
             {isSignUp ? 'Create Account' : 'Welcome back'}
           </h2>

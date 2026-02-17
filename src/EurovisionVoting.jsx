@@ -314,6 +314,9 @@ const EurovisionVoting = ({ userProfile }) => {
   return (
     <div className="ev-container">
       <div className="ev-hero">
+        {theme.logoUrl && (
+          <img src={theme.logoUrl} alt="" style={{ maxHeight: 56, maxWidth: 200, objectFit: 'contain', marginBottom: 8 }} />
+        )}
         <h1 className="ev-title">{theme.appName}</h1>
         <p className="ev-subtitle">{theme.appSubtitle}</p>
         <div className="ev-progress-indicator">

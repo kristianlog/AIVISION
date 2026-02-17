@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from './supabaseClient';
-import { useTheme } from './ThemeContext';
+import { useTheme, THEME_PRESETS } from './ThemeContext';
 import SONGS from './songs';
 import LyricsTimingEditor from './LyricsTimingEditor';
 import {
   ArrowLeft, Upload, Music, Video, Trash2, Plus, Save, X, Film,
-  CheckCircle, AlertCircle, Loader2, Pencil, Clock, ChevronUp, ChevronDown,
-  Users, Settings, Wrench, Download, RotateCcw, Palette
+  CheckCircle, AlertCircle, Loader2, Pencil, Clock,
+  Users, Wrench, Download, Palette, Image
 } from 'lucide-react';
 
 // Country name → ISO 3166-1 alpha-2 code (for auto-flag)
@@ -45,16 +45,18 @@ const AdminPanel = ({ onBack, userProfile }) => {
   // Theme editor local state
   const [themeForm, setThemeForm] = useState({ ...theme });
   const [confirmAction, setConfirmAction] = useState(null);
+  const [songSubTab, setSongSubTab] = useState('list'); // 'list' | 'videos'
+  const [logoUploading, setLogoUploading] = useState(false);
 
-  // Merge built-in songs with custom songs (custom overrides built-in by ID), sorted by sort_order
+  // Merge built-in songs with custom songs (custom overrides built-in by ID), sorted alphabetically by country
   const allSongs = useMemo(() => {
     const customMap = new Map(songs.map(s => [s.id, s]));
-    const merged = SONGS.map((s, i) => customMap.has(s.id)
-      ? { ...s, ...customMap.get(s.id), _isBuiltIn: true, sort_order: customMap.get(s.id).sort_order ?? i }
-      : { ...s, _isBuiltIn: true, sort_order: s.sort_order ?? i });
+    const merged = SONGS.map(s => customMap.has(s.id)
+      ? { ...s, ...customMap.get(s.id), _isBuiltIn: true }
+      : { ...s, _isBuiltIn: true });
     const customOnly = songs.filter(s => !SONGS.some(b => b.id === s.id))
-      .map((s, i) => ({ ...s, _isBuiltIn: false, sort_order: s.sort_order ?? 100 + i }));
-    return [...merged, ...customOnly].sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+      .map(s => ({ ...s, _isBuiltIn: false }));
+    return [...merged, ...customOnly].sort((a, b) => a.country.localeCompare(b.country));
   }, [songs]);
 
   // Song form state
@@ -301,55 +303,6 @@ const AdminPanel = ({ onBack, userProfile }) => {
     }
   };
 
-  const handleReorderSong = async (songIndex, direction) => {
-    const swapIndex = songIndex + direction;
-    if (swapIndex < 0 || swapIndex >= allSongs.length) return;
-
-    const songA = allSongs[songIndex];
-    const songB = allSongs[swapIndex];
-
-    // Swap sort_order values
-    const orderA = songA.sort_order ?? songIndex;
-    const orderB = songB.sort_order ?? swapIndex;
-
-    try {
-      // Save both songs with swapped order to custom_songs
-      const makeSongData = (s, newOrder) => ({
-        id: s.id, country: s.country, flag: s.flag, artist: s.artist,
-        title: s.title, genre: s.genre, lyrics: s.lyrics || '',
-        audio_url: s.audio_url || null, lyrics_timing: s.lyrics_timing || [],
-        cover_url: s.cover_url || null, sort_order: newOrder,
-      });
-
-      const saveOne = (data) => supabase.from('custom_songs').upsert(data, { onConflict: 'id' });
-
-      let results = await Promise.all([
-        saveOne(makeSongData(songA, orderB)),
-        saveOne(makeSongData(songB, orderA)),
-      ]);
-
-      // If failed due to missing columns, retry without cover_url/sort_order
-      if (results.some(r => r.error?.message?.includes('cover_url') || r.error?.message?.includes('sort_order'))) {
-        const makeBase = (s) => ({
-          id: s.id, country: s.country, flag: s.flag, artist: s.artist,
-          title: s.title, genre: s.genre, lyrics: s.lyrics || '',
-          audio_url: s.audio_url || null, lyrics_timing: s.lyrics_timing || [],
-        });
-        results = await Promise.all([saveOne(makeBase(songA)), saveOne(makeBase(songB))]);
-        if (!results.some(r => r.error)) {
-          showMessage('Reorder saved (run updated migration for full support)', 'success');
-        }
-      }
-
-      const firstError = results.find(r => r.error);
-      if (firstError?.error) throw new Error(firstError.error.message);
-
-      loadData();
-    } catch (err) {
-      showMessage(err.message, 'error');
-    }
-  };
-
   const handleEditSong = (song) => {
     setEditingSong(song);
     setSongForm({
@@ -502,6 +455,9 @@ const AdminPanel = ({ onBack, userProfile }) => {
     <div className="admin-panel">
       {/* Hero — matches user view */}
       <div className="ev-hero">
+        {theme.logoUrl && (
+          <img src={theme.logoUrl} alt="" style={{ maxHeight: 56, maxWidth: 200, objectFit: 'contain', marginBottom: 8 }} />
+        )}
         <h1 className="ev-title">{theme.appName}</h1>
         <p className="ev-subtitle">Admin Panel</p>
       </div>
@@ -514,11 +470,10 @@ const AdminPanel = ({ onBack, userProfile }) => {
         </div>
       )}
 
-      {/* Section Tabs — same style as user view */}
+      {/* Section Tabs */}
       <div className="ev-tabs">
         {[
           { id: 'songs', icon: Music, label: 'Songs' },
-          { id: 'videos', icon: Film, label: 'Videos' },
           { id: 'users', icon: Users, label: 'Users' },
           { id: 'settings', icon: Palette, label: 'Theme' },
           { id: 'tools', icon: Wrench, label: 'Tools' },
@@ -543,6 +498,24 @@ const AdminPanel = ({ onBack, userProfile }) => {
       {/* Songs Section */}
       {activeSection === 'songs' && (
         <div className="admin-section">
+          {/* Sub-tabs: Song List vs Videos */}
+          <div className="leaderboard-toggle" style={{ marginBottom: 20 }}>
+            <button
+              className={`leaderboard-toggle-btn ${songSubTab === 'list' ? 'leaderboard-toggle-active' : ''}`}
+              onClick={() => setSongSubTab('list')}
+            >
+              <Music size={16} /> Song List
+            </button>
+            <button
+              className={`leaderboard-toggle-btn ${songSubTab === 'videos' ? 'leaderboard-toggle-active' : ''}`}
+              onClick={() => setSongSubTab('videos')}
+            >
+              <Film size={16} /> Hover Videos
+            </button>
+          </div>
+
+          {songSubTab === 'list' && (
+          <>
           <div className="admin-section-header">
             <h2>All Songs</h2>
             <button onClick={handleOpenNewSong} className="admin-add-btn">
@@ -715,17 +688,8 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
           {/* Songs List */}
           <div className="admin-songs-list">
-            {allSongs.map((song, idx) => (
+            {allSongs.map((song) => (
               <div key={song.id} className="admin-song-row">
-                <div className="admin-order-btns">
-                  <button onClick={() => handleReorderSong(idx, -1)} className="admin-order-btn" title="Move up" disabled={idx === 0}>
-                    <ChevronUp size={14} />
-                  </button>
-                  <span className="admin-order-num">{idx + 1}</span>
-                  <button onClick={() => handleReorderSong(idx, 1)} className="admin-order-btn" title="Move down" disabled={idx === allSongs.length - 1}>
-                    <ChevronDown size={14} />
-                  </button>
-                </div>
                 <span className="admin-song-flag">{song.flag}</span>
                 <div className="admin-song-info">
                   <p className="admin-song-title">{song.title}</p>
@@ -762,12 +726,11 @@ const AdminPanel = ({ onBack, userProfile }) => {
               </div>
             ))}
           </div>
-        </div>
-      )}
+          </>
+          )}
 
-      {/* Country Videos Section */}
-      {activeSection === 'videos' && (
-        <div className="admin-section">
+          {songSubTab === 'videos' && (
+          <>
           <div className="admin-section-header">
             <h2>Country Hover Videos</h2>
             <p className="admin-section-desc">Upload short videos (max 10s, 50MB) that play when users hover over a country.</p>
@@ -836,6 +799,8 @@ const AdminPanel = ({ onBack, userProfile }) => {
               );
             })}
           </div>
+          </>
+          )}
         </div>
       )}
 
@@ -931,6 +896,13 @@ const AdminPanel = ({ onBack, userProfile }) => {
           <div className="settings-preview" style={{
             background: `linear-gradient(135deg, ${themeForm.bgColor1}, ${themeForm.bgColor2}, ${themeForm.bgColor3})`
           }}>
+            {themeForm.logoUrl ? (
+              <img
+                src={themeForm.logoUrl}
+                alt="Logo"
+                style={{ maxHeight: 60, maxWidth: 200, objectFit: 'contain', marginBottom: 4 }}
+              />
+            ) : null}
             <p className="settings-preview-title" style={{
               background: `linear-gradient(135deg, ${themeForm.primaryColor}, ${themeForm.secondaryColor}, #38bdf8)`,
               WebkitBackgroundClip: 'text',
@@ -940,6 +912,46 @@ const AdminPanel = ({ onBack, userProfile }) => {
               {themeForm.appName || 'AIVISION'}
             </p>
             <p className="settings-preview-sub">{themeForm.appSubtitle || 'Vote for your favorite songs'}</p>
+          </div>
+
+          {/* Presets */}
+          <p className="settings-section-title">Quick Presets</p>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+            gap: 8,
+            marginBottom: 20,
+          }}>
+            {THEME_PRESETS.map(preset => (
+              <button
+                key={preset.name}
+                onClick={() => setThemeForm(f => ({ ...f, ...preset }))}
+                style={{
+                  padding: '10px 8px',
+                  background: `linear-gradient(135deg, ${preset.bgColor1}, ${preset.bgColor2}, ${preset.bgColor3})`,
+                  border: themeForm.primaryColor === preset.primaryColor && themeForm.bgColor1 === preset.bgColor1
+                    ? `2px solid ${preset.primaryColor}`
+                    : '2px solid rgba(255,255,255,0.1)',
+                  borderRadius: 10,
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  gap: 4,
+                  justifyContent: 'center',
+                  marginBottom: 6,
+                }}>
+                  <div style={{ width: 16, height: 16, borderRadius: '50%', background: preset.primaryColor }} />
+                  <div style={{ width: 16, height: 16, borderRadius: '50%', background: preset.secondaryColor }} />
+                </div>
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>
+                  {preset.name}
+                </span>
+              </button>
+            ))}
           </div>
 
           <p className="settings-section-title">App Identity</p>
@@ -961,6 +973,87 @@ const AdminPanel = ({ onBack, userProfile }) => {
                 onChange={e => setThemeForm(f => ({ ...f, appSubtitle: e.target.value }))}
                 placeholder="Vote for your favorite songs"
               />
+            </div>
+          </div>
+
+          {/* Logo Upload */}
+          <p className="settings-section-title">Logo</p>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20 }}>
+            {themeForm.logoUrl ? (
+              <div style={{
+                width: 80, height: 80,
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(0,0,0,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                flexShrink: 0,
+              }}>
+                <img src={themeForm.logoUrl} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              </div>
+            ) : (
+              <div style={{
+                width: 80, height: 80,
+                borderRadius: 12,
+                border: '1px dashed rgba(255,255,255,0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'rgba(196,181,253,0.4)',
+                flexShrink: 0,
+              }}>
+                <Image size={28} />
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+              <div className="admin-file-input">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  id="logo-upload"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) {
+                      showMessage('Logo must be under 5MB', 'error');
+                      return;
+                    }
+                    setLogoUploading(true);
+                    try {
+                      const ext = file.name.split('.').pop();
+                      const fileName = `branding/logo_${Date.now()}.${ext}`;
+                      const { error: uploadErr } = await supabase.storage
+                        .from('media')
+                        .upload(fileName, file);
+                      if (uploadErr) throw uploadErr;
+                      const { data: urlData } = supabase.storage
+                        .from('media')
+                        .getPublicUrl(fileName);
+                      setThemeForm(f => ({ ...f, logoUrl: urlData.publicUrl }));
+                      showMessage('Logo uploaded! Hit Save Theme to apply.');
+                    } catch (err) {
+                      showMessage(err.message || 'Upload failed', 'error');
+                    } finally {
+                      setLogoUploading(false);
+                    }
+                  }}
+                />
+                <label htmlFor="logo-upload" className="admin-file-label" style={{ margin: 0 }}>
+                  {logoUploading ? <Loader2 size={16} className="admin-spinner" /> : <Upload size={16} />}
+                  <span>{logoUploading ? 'Uploading...' : 'Upload PNG / SVG'}</span>
+                </label>
+              </div>
+              {themeForm.logoUrl && (
+                <button
+                  className="tools-action-btn tools-btn-danger"
+                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                  onClick={() => setThemeForm(f => ({ ...f, logoUrl: '' }))}
+                >
+                  <Trash2 size={12} /> Remove Logo
+                </button>
+              )}
             </div>
           </div>
 
@@ -1240,11 +1333,11 @@ const AdminPanel = ({ onBack, userProfile }) => {
                 onClick={async () => {
                   try {
                     if (confirmAction === 'reset-votes') {
-                      const { error } = await supabase.from('votes').delete().neq('user_id', '');
+                      const { error } = await supabase.from('votes').delete().not('user_id', 'is', null);
                       if (error) throw error;
                       showMessage('All votes have been reset');
                     } else if (confirmAction === 'reset-ratings') {
-                      const { error } = await supabase.from('ratings').delete().neq('user_id', '');
+                      const { error } = await supabase.from('ratings').delete().not('user_id', 'is', null);
                       if (error) throw error;
                       showMessage('All ratings have been reset');
                     } else if (confirmAction.type === 'delete-user-votes') {
