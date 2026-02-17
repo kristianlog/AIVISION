@@ -7,15 +7,18 @@ import Auth from './Auth';
 import AuthCallback from './AuthCallback';
 import EurovisionVoting from './EurovisionVoting';
 import AdminPanel from './AdminPanel';
-import { User, LogOut, Shield } from 'lucide-react';
+import { User, LogOut, Shield, Sun, Moon } from 'lucide-react';
+import AvatarCropModal from './AvatarCropModal';
 
 function App() {
   const [session, setSession] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showAvatarCrop, setShowAvatarCrop] = useState(false);
   const fetchingRef = useRef(false);
   const profileLoadedRef = useRef(false);
+  const { mode, toggleMode } = useTheme();
 
   const fetchUserProfile = async (userId) => {
     if (fetchingRef.current || profileLoadedRef.current) return;
@@ -145,16 +148,24 @@ function App() {
       justifyContent: 'space-between',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-        }}>
+        <div
+          onClick={() => setShowAvatarCrop(true)}
+          title="Change profile picture"
+          style={{
+            width: '40px',
+            height: '40px',
+            background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            cursor: 'pointer',
+            transition: 'transform 0.2s ease',
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
           {userProfile?.avatar_url ? (
             <img
               src={userProfile.avatar_url}
@@ -185,6 +196,29 @@ function App() {
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          onClick={toggleMode}
+          title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            background: mode === 'light' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
+            border: `1px solid ${mode === 'light' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)'}`,
+            borderRadius: '10px',
+            color: mode === 'light' ? '#475569' : 'rgba(196,181,253,0.7)',
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            width: 'auto',
+            margin: 0,
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {mode === 'dark' ? <Sun style={{ width: '14px', height: '14px' }} /> : <Moon style={{ width: '14px', height: '14px' }} />}
+          <span>{mode === 'dark' ? 'Light' : 'Dark'}</span>
+        </button>
         {userIsAdmin && (
           <button
             onClick={() => setShowAdmin(!showAdmin)}
@@ -263,6 +297,17 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+
+        {showAvatarCrop && userProfile && (
+          <AvatarCropModal
+            userProfile={userProfile}
+            onSave={(url) => {
+              setUserProfile(prev => ({ ...prev, avatar_url: url }));
+              setShowAvatarCrop(false);
+            }}
+            onClose={() => setShowAvatarCrop(false)}
+          />
+        )}
       </div>
     </Router>
   );

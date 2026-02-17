@@ -25,12 +25,13 @@ export const THEME_PRESETS = [
   { name: 'Tropical Sunset',  primaryColor: '#fb923c', secondaryColor: '#e879f9', bgColor1: '#2a1a0a', bgColor2: '#1a0a1a', bgColor3: '#0a1a2a' },
 ];
 
-const ThemeContext = createContext({ theme: DEFAULT_THEME, updateTheme: () => {} });
+const ThemeContext = createContext({ theme: DEFAULT_THEME, updateTheme: () => {}, mode: 'dark', toggleMode: () => {} });
 
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(DEFAULT_THEME);
+  const [mode, setMode] = useState(() => localStorage.getItem('aivision_mode') || 'dark');
 
   useEffect(() => {
     loadTheme();
@@ -44,6 +45,13 @@ export const ThemeProvider = ({ children }) => {
     r.style.setProperty('--bg-2', theme.bgColor2);
     r.style.setProperty('--bg-3', theme.bgColor3);
   }, [theme]);
+
+  useEffect(() => {
+    document.body.classList.toggle('light-mode', mode === 'light');
+    localStorage.setItem('aivision_mode', mode);
+  }, [mode]);
+
+  const toggleMode = () => setMode(m => m === 'dark' ? 'light' : 'dark');
 
   const loadTheme = async () => {
     try {
@@ -75,7 +83,7 @@ export const ThemeProvider = ({ children }) => {
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, updateTheme, reloadTheme: loadTheme }}>
+    <ThemeContext.Provider value={{ theme, updateTheme, reloadTheme: loadTheme, mode, toggleMode }}>
       {children}
     </ThemeContext.Provider>
   );

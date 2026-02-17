@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Star, Check, Play, Pause, SkipBack } from 'lucide-react';
+import { X, Star, Check, Play, Pause, SkipBack, Send } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import useFlagColors from './useFlagColors';
+
+const EMOJI_OPTIONS = ['\u2764\uFE0F', '\uD83D\uDD25', '\uD83D\uDC4F', '\uD83D\uDE0D', '\uD83C\uDFB5', '\uD83D\uDC83', '\uD83C\uDF1F', '\uD83D\uDE2D'];
 
 const POINTS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
 
@@ -32,6 +34,12 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   // Rating categories
   const [ratings, setRatings] = useState({ lyrics: 5, melody: 5, memorable: 5 });
   const [ratingSaved, setRatingSaved] = useState(false);
+
+  // Reactions & comments
+  const [reactions, setReactions] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentSaving, setCommentSaving] = useState(false);
 
   const hasAudio = !!song.audio_url;
 
@@ -99,6 +107,59 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     };
     loadRatings();
   }, [song.id, userProfile?.id]);
+
+  // Load reactions & comments
+  useEffect(() => {
+    const loadReactions = async () => {
+      try {
+        const { data } = await supabase.from('song_reactions').select('*').eq('song_id', song.id);
+        if (data) setReactions(data);
+      } catch { /* table may not exist */ }
+    };
+    const loadComments = async () => {
+      try {
+        const { data } = await supabase
+          .from('song_comments')
+          .select('*, profiles(name, avatar_url)')
+          .eq('song_id', song.id)
+          .order('created_at', { ascending: true });
+        if (data) setComments(data);
+      } catch { /* table may not exist */ }
+    };
+    loadReactions();
+    loadComments();
+  }, [song.id]);
+
+  const toggleReaction = async (emoji) => {
+    if (!userProfile?.id) return;
+    const existing = reactions.find(r => r.user_id === userProfile.id && r.emoji === emoji);
+    try {
+      if (existing) {
+        await supabase.from('song_reactions').delete().eq('id', existing.id);
+        setReactions(prev => prev.filter(r => r.id !== existing.id));
+      } else {
+        const { data } = await supabase.from('song_reactions')
+          .insert({ user_id: userProfile.id, song_id: song.id, emoji })
+          .select()
+          .single();
+        if (data) setReactions(prev => [...prev, data]);
+      }
+    } catch { /* graceful fail */ }
+  };
+
+  const addComment = async () => {
+    if (!userProfile?.id || !newComment.trim()) return;
+    setCommentSaving(true);
+    try {
+      const { data } = await supabase.from('song_comments')
+        .insert({ user_id: userProfile.id, song_id: song.id, text: newComment.trim() })
+        .select('*, profiles(name, avatar_url)')
+        .single();
+      if (data) setComments(prev => [...prev, data]);
+      setNewComment('');
+    } catch { /* graceful fail */ }
+    setCommentSaving(false);
+  };
 
   // Audio event listeners
   useEffect(() => {
@@ -479,6 +540,71 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
           <button onClick={handleRatingSave} className="rating-save-btn">
             {ratingSaved ? <><Check size={16} /> Saved!</> : 'Save Ratings'}
           </button>
+        </div>
+
+        {/* Reactions */}
+        <div className="song-reactions-section">
+          <h3 className="detail-voting-heading">Reactions</h3>
+          <div className="reactions-emoji-bar">
+            {EMOJI_OPTIONS.map(emoji => {
+              const count = reactions.filter(r => r.emoji === emoji).length;
+              const isActive = reactions.some(r => r.user_id === userProfile?.id && r.emoji === emoji);
+              return (
+                <button
+                  key={emoji}
+                  onClick={() => toggleReaction(emoji)}
+                  className={`reaction-btn ${isActive ? 'reaction-btn-active' : ''}`}
+                >
+                  <span className="reaction-emoji">{emoji}</span>
+                  {count > 0 && <span className="reaction-count">{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Comments */}
+        <div className="song-comments-section">
+          <h3 className="detail-voting-heading">Comments</h3>
+          {comments.length > 0 && (
+            <div className="comments-list">
+              {comments.map(c => (
+                <div key={c.id} className="comment-item">
+                  <div className="comment-avatar">
+                    {c.profiles?.avatar_url ? (
+                      <img src={c.profiles.avatar_url} alt="" />
+                    ) : (
+                      <span>{(c.profiles?.name || '?')[0].toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="comment-body">
+                    <div className="comment-meta">
+                      <span className="comment-name">{c.profiles?.name || 'User'}</span>
+                      <span className="comment-time">{new Date(c.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <p className="comment-text">{c.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="comment-input-row">
+            <input
+              type="text"
+              placeholder="Add a comment..."
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && addComment()}
+              className="comment-input"
+            />
+            <button
+              onClick={addComment}
+              disabled={commentSaving || !newComment.trim()}
+              className="comment-send-btn"
+            >
+              <Send size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Vote Confirmation Modal */}
