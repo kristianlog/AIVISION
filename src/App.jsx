@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
+import { isAdmin } from './adminConfig';
 import Auth from './Auth';
 import AuthCallback from './AuthCallback';
 import EurovisionVoting from './EurovisionVoting';
-import { User, LogOut } from 'lucide-react';
+import AdminPanel from './AdminPanel';
+import { User, LogOut, Shield } from 'lucide-react';
 
 function App() {
   const [session, setSession] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
     // Get initial session
@@ -67,14 +70,18 @@ function App() {
   };
 
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    // Always clear local state first so the UI updates immediately
+    setSession(null);
+    setUserProfile(null);
+    setShowAdmin(false);
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
       console.error('Error signing out:', error);
-    } else {
-      setSession(null);
-      setUserProfile(null);
     }
   };
+
+  const userIsAdmin = isAdmin(userProfile?.email || session?.user?.email);
 
   if (loading) {
     return (
@@ -89,30 +96,102 @@ function App() {
   }
 
   const UserHeader = () => (
-    <div className="bg-white/10 backdrop-blur-md p-4 mb-6 rounded-lg border border-white/20">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
-            {userProfile?.avatar_url ? (
-              <img 
-                src={userProfile.avatar_url} 
-                alt={userProfile.name}
-                className="w-full h-full rounded-full object-cover"
-              />
-            ) : (
-              <User className="h-5 w-5 text-white" />
-            )}
-          </div>
-          <div>
-            <p className="text-white font-semibold">{userProfile?.name}</p>
-            <p className="text-purple-200 text-sm">Eurovision Voter</p>
-          </div>
+    <div style={{
+      background: 'rgba(255,255,255,0.06)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      padding: '14px 20px',
+      marginBottom: '24px',
+      borderRadius: '14px',
+      border: '1px solid rgba(255,255,255,0.1)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}>
+          {userProfile?.avatar_url ? (
+            <img
+              src={userProfile.avatar_url}
+              alt={userProfile.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+            />
+          ) : (
+            <User style={{ width: '20px', height: '20px', color: 'white' }} />
+          )}
         </div>
+        <div>
+          <p style={{ color: 'white', fontWeight: 600, margin: 0, fontSize: '0.95rem' }}>
+            {userProfile?.name}
+            {userIsAdmin && (
+              <span style={{
+                marginLeft: '8px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                color: '#fbbf24',
+                background: 'rgba(251,191,36,0.15)',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                verticalAlign: 'middle',
+              }}>ADMIN</span>
+            )}
+          </p>
+          <p style={{ color: 'rgba(196,181,253,0.6)', fontSize: '0.8rem', margin: 0 }}>Eurovision Voter</p>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {userIsAdmin && (
+          <button
+            onClick={() => setShowAdmin(!showAdmin)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              background: showAdmin ? 'rgba(251,191,36,0.25)' : 'rgba(251,191,36,0.1)',
+              border: '1px solid rgba(251,191,36,0.3)',
+              borderRadius: '10px',
+              color: '#fbbf24',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 500,
+              width: 'auto',
+              margin: 0,
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <Shield style={{ width: '14px', height: '14px' }} />
+            <span>{showAdmin ? 'Back to App' : 'Admin'}</span>
+          </button>
+        )}
         <button
           onClick={handleSignOut}
-          className="flex items-center space-x-2 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-lg transition-colors"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            background: 'rgba(239,68,68,0.15)',
+            border: '1px solid rgba(239,68,68,0.25)',
+            borderRadius: '10px',
+            color: 'rgba(252,165,165,0.8)',
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            width: 'auto',
+            margin: 0,
+          }}
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut style={{ width: '14px', height: '14px' }} />
           <span>Sign Out</span>
         </button>
       </div>
@@ -121,27 +200,31 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div style={{ minHeight: '100vh' }}>
         <Routes>
-          <Route 
-            path="/auth/callback" 
-            element={<AuthCallback onAuthSuccess={handleAuthSuccess} />} 
+          <Route
+            path="/auth/callback"
+            element={<AuthCallback onAuthSuccess={handleAuthSuccess} />}
           />
-          
-          <Route 
-            path="/" 
+
+          <Route
+            path="/"
             element={
               !session || !userProfile ? (
                 <Auth onAuthSuccess={handleAuthSuccess} />
               ) : (
-                <div className="container mx-auto px-4 py-8">
+                <div style={{ padding: '24px 16px', maxWidth: '1100px', margin: '0 auto' }}>
                   <UserHeader />
-                  <EurovisionVoting userProfile={userProfile} />
+                  {showAdmin && userIsAdmin ? (
+                    <AdminPanel onBack={() => setShowAdmin(false)} userProfile={userProfile} />
+                  ) : (
+                    <EurovisionVoting userProfile={userProfile} />
+                  )}
                 </div>
               )
-            } 
+            }
           />
-          
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
