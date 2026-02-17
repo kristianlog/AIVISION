@@ -14,9 +14,10 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
   const fetchingRef = useRef(false);
+  const profileLoadedRef = useRef(false);
 
   const fetchUserProfile = async (userId) => {
-    if (fetchingRef.current) return;
+    if (fetchingRef.current || profileLoadedRef.current) return;
     fetchingRef.current = true;
 
     try {
@@ -30,6 +31,7 @@ function App() {
         console.error('Error fetching profile:', error);
       } else if (profile) {
         setUserProfile(profile);
+        profileLoadedRef.current = true;
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -60,18 +62,19 @@ function App() {
       if (isMounted) setLoading(false);
     }, 5000);
 
-    // Listen for auth changes — skip profile fetch if handleAuthSuccess already set it
+    // Listen for auth changes — fetch profile only if not already loaded
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
       setSession(session);
 
-      if (!session?.user) {
+      if (session?.user) {
+        // Only fetches if profileLoadedRef is false (skips if already loaded or if handleAuthSuccess set it)
+        fetchUserProfile(session.user.id);
+      } else {
         setUserProfile(null);
+        profileLoadedRef.current = false;
         setLoading(false);
       }
-      // Don't fetch profile here — it's already handled by:
-      // 1. initAuth on mount (for refresh)
-      // 2. handleAuthSuccess on login (from Auth.jsx)
     });
 
     return () => {
@@ -82,6 +85,7 @@ function App() {
   }, []); // Empty dependency — runs once
 
   const handleAuthSuccess = (user, profile) => {
+    profileLoadedRef.current = true;
     setSession({ user });
     setUserProfile(profile);
     setLoading(false);
@@ -89,6 +93,7 @@ function App() {
 
   const handleSignOut = async () => {
     // Always clear local state first so the UI updates immediately
+    profileLoadedRef.current = false;
     setSession(null);
     setUserProfile(null);
     setShowAdmin(false);
