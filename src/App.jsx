@@ -23,7 +23,15 @@ function App() {
       } else {
         setLoading(false);
       }
+    }).catch((error) => {
+      console.error('Error getting session:', error);
+      setLoading(false);
     });
+
+    // Safety timeout - never stay on loading screen more than 5 seconds
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
 
     // Listen for auth changes
     const {
@@ -31,7 +39,7 @@ function App() {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session);
       setSession(session);
-      
+
       if (session?.user) {
         await fetchUserProfile(session.user.id);
       } else {
@@ -40,7 +48,10 @@ function App() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUserProfile = async (userId) => {
