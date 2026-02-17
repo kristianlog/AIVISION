@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Music, BarChart3, Heart, RotateCcw, Search, X as XIcon, Award, Trophy, Flame } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import { useTheme } from './ThemeContext';
 import SONGS from './songs';
 import SongCard from './SongCard';
 import SongDetail from './SongDetail';
@@ -15,6 +16,7 @@ const TABS = [
 const STORAGE_KEY = 'aivision_votes';
 
 const EurovisionVoting = ({ userProfile }) => {
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState('songs');
   const [selectedSong, setSelectedSong] = useState(null);
   const [userVotes, setUserVotes] = useState({});
@@ -312,8 +314,8 @@ const EurovisionVoting = ({ userProfile }) => {
   return (
     <div className="ev-container">
       <div className="ev-hero">
-        <h1 className="ev-title">AIVISION</h1>
-        <p className="ev-subtitle">Vote for your favorite songs</p>
+        <h1 className="ev-title">{theme.appName}</h1>
+        <p className="ev-subtitle">{theme.appSubtitle}</p>
         <div className="ev-progress-indicator">
           <div className="ev-progress-bar">
             <div

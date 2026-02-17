@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 import { isAdmin } from './adminConfig';
+import { ThemeProvider, useTheme } from './ThemeContext';
 import Auth from './Auth';
 import AuthCallback from './AuthCallback';
 import EurovisionVoting from './EurovisionVoting';
@@ -108,11 +109,23 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-2xl font-bold text-white mb-2">Loading AIVISION...</h2>
-          <p className="text-purple-200">Preparing your Eurovision experience</p>
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 64, height: 64,
+            border: '4px solid rgba(139,92,246,0.3)',
+            borderTopColor: 'var(--color-primary)',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px',
+          }} />
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', marginBottom: 8 }}>Loading...</h2>
+          <p style={{ color: 'rgba(196,181,253,0.7)' }}>Preparing your experience</p>
         </div>
       </div>
     );
@@ -135,7 +148,7 @@ function App() {
         <div style={{
           width: '40px',
           height: '40px',
-          background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+          background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
           borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
@@ -255,4 +268,10 @@ function App() {
   );
 }
 
-export default App;
+const AppWithTheme = () => (
+  <ThemeProvider>
+    <App />
+  </ThemeProvider>
+);
+
+export default AppWithTheme;
