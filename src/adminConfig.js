@@ -2,6 +2,7 @@
 const ADMIN_EMAILS = [
   'admin@aivision.com',
   'kristian@aivision.com',
+  'kristian.log1@gmail.com',
   // Add more admin emails here
 ];
 
