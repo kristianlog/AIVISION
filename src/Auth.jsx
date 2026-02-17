@@ -84,42 +84,43 @@ const Auth = ({ onAuthSuccess }) => {
           password: formData.password,
         });
 
-        if (authError) {
-          console.error('Sign in error details:', authError);
-          throw authError;
-        }
+        if (authError) throw authError;
 
-        console.log('Sign in successful, fetching profile for user:', authData.user.id);
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
-
-        if (profileError) {
-          const { error: createError } = await supabase
+        // Try to fetch existing profile, but don't fail if it aborts
+        let profile = null;
+        try {
+          const { data, error: profileError } = await supabase
             .from('profiles')
-            .insert({
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
+
+          if (!profileError) {
+            profile = data;
+          } else if (profileError.code === 'PGRST116') {
+            // Profile not found — create one
+            await supabase.from('profiles').insert({
               id: authData.user.id,
               name: authData.user.email?.split('@')[0] || 'User',
               email: authData.user.email,
               created_at: new Date().toISOString()
             });
-
-          if (createError) throw createError;
-          onAuthSuccess(authData.user, {
-            name: authData.user.email?.split('@')[0] || 'User',
-            email: authData.user.email
-          });
-        } else {
-          onAuthSuccess(authData.user, profile);
+          }
+        } catch (fetchErr) {
+          console.warn('Profile fetch failed, using fallback:', fetchErr.message);
         }
+
+        // Always succeed login — use profile data or fallback
+        onAuthSuccess(authData.user, profile || {
+          id: authData.user.id,
+          name: authData.user.email?.split('@')[0] || 'User',
+          email: authData.user.email
+        });
       }
     } catch (error) {
       console.error('Auth error:', error);
-      // Better error message for abort errors
-      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
-        setError('Request timed out. Please try again.');
+      if (error.message?.includes('Invalid login')) {
+        setError('Invalid email or password.');
       } else {
         setError(error.message || 'Authentication failed. Please try again.');
       }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 import { isAdmin } from './adminConfig';
@@ -13,55 +13,65 @@ function App() {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
-  const [fetchingProfileId, setFetchingProfileId] = useState(null);
+  const fetchingRef = useRef(false);
+
+  const fetchUserProfile = async (userId) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error);
+      } else if (profile) {
+        setUserProfile(profile);
+      }
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+    } finally {
+      fetchingRef.current = false;
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
-    let timeout;
 
-    const initAuth = async () => {
-      try {
-        // Get initial session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!isMounted) return;
-
-        setSession(session);
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setLoading(false);
-        }
-      } catch (error) {
-        if (!isMounted) return;
-        console.error('Error getting session:', error);
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
+      setSession(session);
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      } else {
         setLoading(false);
       }
-    };
+    }).catch(() => {
+      if (isMounted) setLoading(false);
+    });
 
-    initAuth();
-
-    // Safety timeout - never stay on loading screen more than 5 seconds
-    timeout = setTimeout(() => {
+    // Safety timeout
+    const timeout = setTimeout(() => {
       if (isMounted) setLoading(false);
     }, 5000);
 
-    // Listen for auth changes - don't re-fetch if already fetching
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Listen for auth changes — skip profile fetch if handleAuthSuccess already set it
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
-      console.log('Auth state changed:', event, session?.user?.id);
       setSession(session);
 
-      if (session?.user) {
-        // Only fetch if not already fetching this user
-        if (fetchingProfileId !== session.user.id) {
-          await fetchUserProfile(session.user.id);
-        }
-      } else {
+      if (!session?.user) {
         setUserProfile(null);
         setLoading(false);
       }
+      // Don't fetch profile here — it's already handled by:
+      // 1. initAuth on mount (for refresh)
+      // 2. handleAuthSuccess on login (from Auth.jsx)
     });
 
     return () => {
@@ -69,46 +79,7 @@ function App() {
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, [fetchingProfileId]);
-
-  const fetchUserProfile = async (userId) => {
-    setFetchingProfileId(userId);
-    let retries = 3;
-
-    const attemptFetch = async () => {
-      try {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-
-        if (error && error.code !== 'PGRST116') {
-          throw error;
-        } else if (profile) {
-          setUserProfile(profile);
-        }
-        return true;
-      } catch (error) {
-        // Retry on abort errors
-        if ((error.message?.includes('aborted') || error.name === 'AbortError') && retries > 0) {
-          retries--;
-          console.warn(`Profile fetch aborted, retrying... (${retries} attempts left)`);
-          await new Promise(r => setTimeout(r, 500)); // Wait 500ms before retry
-          return attemptFetch();
-        }
-        console.error('Error fetching profile:', error);
-        return false;
-      }
-    };
-
-    try {
-      await attemptFetch();
-    } finally {
-      setFetchingProfileId(null);
-      setLoading(false);
-    }
-  };
+  }, []); // Empty dependency — runs once
 
   const handleAuthSuccess = (user, profile) => {
     setSession({ user });
