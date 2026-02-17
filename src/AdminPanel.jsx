@@ -493,13 +493,10 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
   return (
     <div className="admin-panel">
-      {/* Header */}
-      <div className="admin-header">
-        <button onClick={onBack} className="admin-back-btn">
-          <ArrowLeft size={20} />
-          <span>Back</span>
-        </button>
-        <h1 className="admin-title">Admin Panel</h1>
+      {/* Hero — matches user view */}
+      <div className="ev-hero">
+        <h1 className="ev-title">AIVISION</h1>
+        <p className="ev-subtitle">Admin Panel</p>
       </div>
 
       {/* Message Toast */}
@@ -510,25 +507,25 @@ const AdminPanel = ({ onBack, userProfile }) => {
         </div>
       )}
 
-      {/* Section Tabs */}
-      <div className="admin-tabs">
+      {/* Section Tabs — same style as user view */}
+      <div className="ev-tabs">
         <button
           onClick={() => setActiveSection('songs')}
-          className={`admin-tab ${activeSection === 'songs' ? 'admin-tab-active' : ''}`}
+          className={`ev-tab ${activeSection === 'songs' ? 'ev-tab-active' : ''}`}
         >
           <Music size={18} />
           <span>Songs</span>
         </button>
         <button
           onClick={() => setActiveSection('videos')}
-          className={`admin-tab ${activeSection === 'videos' ? 'admin-tab-active' : ''}`}
+          className={`ev-tab ${activeSection === 'videos' ? 'ev-tab-active' : ''}`}
         >
           <Film size={18} />
           <span>Videos</span>
         </button>
         <button
           onClick={() => setActiveSection('users')}
-          className={`admin-tab ${activeSection === 'users' ? 'admin-tab-active' : ''}`}
+          className={`ev-tab ${activeSection === 'users' ? 'ev-tab-active' : ''}`}
         >
           <Users size={18} />
           <span>Users</span>

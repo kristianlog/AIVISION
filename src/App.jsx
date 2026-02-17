@@ -11,7 +11,7 @@ import { User, LogOut, Shield } from 'lucide-react';
 function App() {
   const [session, setSession] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
@@ -28,10 +28,10 @@ function App() {
       setLoading(false);
     });
 
-    // Safety timeout - never stay on loading screen more than 5 seconds
+    // Safety timeout - never stay on loading screen more than 3 seconds
     const timeout = setTimeout(() => {
       setLoading(false);
-    }, 5000);
+    }, 3000);
 
     // Listen for auth changes
     const {
@@ -148,8 +148,8 @@ function App() {
                 marginLeft: '8px',
                 fontSize: '0.7rem',
                 fontWeight: 700,
-                color: '#fbbf24',
-                background: 'rgba(251,191,36,0.15)',
+                color: '#c084fc',
+                background: 'rgba(139,92,246,0.15)',
                 padding: '2px 8px',
                 borderRadius: '6px',
                 verticalAlign: 'middle',
@@ -168,10 +168,10 @@ function App() {
               alignItems: 'center',
               gap: '6px',
               padding: '8px 14px',
-              background: showAdmin ? 'rgba(251,191,36,0.25)' : 'rgba(251,191,36,0.1)',
-              border: '1px solid rgba(251,191,36,0.3)',
+              background: showAdmin ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.1)',
+              border: '1px solid rgba(139,92,246,0.3)',
               borderRadius: '10px',
-              color: '#fbbf24',
+              color: '#c084fc',
               cursor: 'pointer',
               fontSize: '0.85rem',
               fontWeight: 500,
