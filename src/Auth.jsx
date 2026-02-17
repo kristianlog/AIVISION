@@ -84,8 +84,12 @@ const Auth = ({ onAuthSuccess }) => {
           password: formData.password,
         });
 
-        if (authError) throw authError;
+        if (authError) {
+          console.error('Sign in error details:', authError);
+          throw authError;
+        }
 
+        console.log('Sign in successful, fetching profile for user:', authData.user.id);
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -101,11 +105,11 @@ const Auth = ({ onAuthSuccess }) => {
               email: authData.user.email,
               created_at: new Date().toISOString()
             });
-          
+
           if (createError) throw createError;
-          onAuthSuccess(authData.user, { 
-            name: authData.user.email?.split('@')[0] || 'User', 
-            email: authData.user.email 
+          onAuthSuccess(authData.user, {
+            name: authData.user.email?.split('@')[0] || 'User',
+            email: authData.user.email
           });
         } else {
           onAuthSuccess(authData.user, profile);
@@ -113,7 +117,12 @@ const Auth = ({ onAuthSuccess }) => {
       }
     } catch (error) {
       console.error('Auth error:', error);
-      setError(error.message);
+      // Better error message for abort errors
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+        setError('Request timed out. Please try again.');
+      } else {
+        setError(error.message || 'Authentication failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
