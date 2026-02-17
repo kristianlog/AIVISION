@@ -11,7 +11,7 @@ import { User, LogOut, Shield } from 'lucide-react';
 function App() {
   const [session, setSession] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
