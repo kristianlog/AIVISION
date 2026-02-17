@@ -23,7 +23,7 @@ const EurovisionVoting = ({ userProfile }) => {
   const [allVotes, setAllVotes] = useState([]);
   const [useLocal, setUseLocal] = useState(false);
   const [countryVideos, setCountryVideos] = useState({});
-  const [allSongs, setAllSongs] = useState(SONGS);
+  const [allSongs, setAllSongs] = useState([...SONGS].sort((a, b) => a.country.localeCompare(b.country)));
   const [allRatings, setAllRatings] = useState([]);
   const [lastVote, setLastVote] = useState(null);
   const [showUndo, setShowUndo] = useState(false);
@@ -114,7 +114,7 @@ const EurovisionVoting = ({ userProfile }) => {
             : { ...s, sort_order: s.sort_order ?? i });
           const customOnly = data.filter(s => !SONGS.some(b => b.id === s.id))
             .map((s, i) => ({ ...s, sort_order: s.sort_order ?? 100 + i }));
-          const all = [...merged, ...customOnly].sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+          const all = [...merged, ...customOnly].sort((a, b) => a.country.localeCompare(b.country));
           setAllSongs(all);
         }
       } catch {
