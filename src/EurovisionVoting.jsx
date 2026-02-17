@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Music, BarChart3, Heart, RotateCcw, Search, X as XIcon, Award, Trophy, Flame } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import { useTheme } from './ThemeContext';
 import SONGS from './songs';
 import SongCard from './SongCard';
 import SongDetail from './SongDetail';
@@ -15,13 +16,14 @@ const TABS = [
 const STORAGE_KEY = 'aivision_votes';
 
 const EurovisionVoting = ({ userProfile }) => {
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState('songs');
   const [selectedSong, setSelectedSong] = useState(null);
   const [userVotes, setUserVotes] = useState({});
   const [allVotes, setAllVotes] = useState([]);
   const [useLocal, setUseLocal] = useState(false);
   const [countryVideos, setCountryVideos] = useState({});
-  const [allSongs, setAllSongs] = useState(SONGS);
+  const [allSongs, setAllSongs] = useState([...SONGS].sort((a, b) => a.country.localeCompare(b.country)));
   const [allRatings, setAllRatings] = useState([]);
   const [lastVote, setLastVote] = useState(null);
   const [showUndo, setShowUndo] = useState(false);
@@ -112,7 +114,7 @@ const EurovisionVoting = ({ userProfile }) => {
             : { ...s, sort_order: s.sort_order ?? i });
           const customOnly = data.filter(s => !SONGS.some(b => b.id === s.id))
             .map((s, i) => ({ ...s, sort_order: s.sort_order ?? 100 + i }));
-          const all = [...merged, ...customOnly].sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+          const all = [...merged, ...customOnly].sort((a, b) => a.country.localeCompare(b.country));
           setAllSongs(all);
         }
       } catch {
@@ -312,8 +314,11 @@ const EurovisionVoting = ({ userProfile }) => {
   return (
     <div className="ev-container">
       <div className="ev-hero">
-        <h1 className="ev-title">AIVISION</h1>
-        <p className="ev-subtitle">Vote for your favorite songs</p>
+        {theme.logoUrl && (
+          <img src={theme.logoUrl} alt="" style={{ maxHeight: 56, maxWidth: 200, objectFit: 'contain', marginBottom: 8 }} />
+        )}
+        <h1 className="ev-title">{theme.appName}</h1>
+        <p className="ev-subtitle">{theme.appSubtitle}</p>
         <div className="ev-progress-indicator">
           <div className="ev-progress-bar">
             <div

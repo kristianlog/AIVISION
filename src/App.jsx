@@ -1,60 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 import { isAdmin } from './adminConfig';
+import { ThemeProvider, useTheme } from './ThemeContext';
 import Auth from './Auth';
 import AuthCallback from './AuthCallback';
 import EurovisionVoting from './EurovisionVoting';
 import AdminPanel from './AdminPanel';
-import { User, LogOut, Shield } from 'lucide-react';
+import { User, LogOut, Shield, Sun, Moon } from 'lucide-react';
+import AvatarCropModal from './AvatarCropModal';
 
 function App() {
   const [session, setSession] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
-
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    }).catch((error) => {
-      console.error('Error getting session:', error);
-      setLoading(false);
-    });
-
-    // Safety timeout - never stay on loading screen more than 5 seconds
-    const timeout = setTimeout(() => {
-      setLoading(false);
-    }, 5000);
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session);
-      setSession(session);
-
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
-      } else {
-        setUserProfile(null);
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
-  }, []);
+  const [showAvatarCrop, setShowAvatarCrop] = useState(false);
+  const fetchingRef = useRef(false);
+  const profileLoadedRef = useRef(false);
+  const { mode, toggleMode } = useTheme();
 
   const fetchUserProfile = async (userId) => {
+    if (fetchingRef.current || profileLoadedRef.current) return;
+    fetchingRef.current = true;
+
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -66,15 +35,61 @@ function App() {
         console.error('Error fetching profile:', error);
       } else if (profile) {
         setUserProfile(profile);
+        profileLoadedRef.current = true;
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
     } finally {
+      fetchingRef.current = false;
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    let isMounted = true;
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
+      setSession(session);
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (isMounted) setLoading(false);
+    });
+
+    // Safety timeout
+    const timeout = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 5000);
+
+    // Listen for auth changes — fetch profile only if not already loaded
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+      setSession(session);
+
+      if (session?.user) {
+        // Only fetches if profileLoadedRef is false (skips if already loaded or if handleAuthSuccess set it)
+        fetchUserProfile(session.user.id);
+      } else {
+        setUserProfile(null);
+        profileLoadedRef.current = false;
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
+  }, []); // Empty dependency — runs once
+
   const handleAuthSuccess = (user, profile) => {
+    profileLoadedRef.current = true;
     setSession({ user });
     setUserProfile(profile);
     setLoading(false);
@@ -82,6 +97,7 @@ function App() {
 
   const handleSignOut = async () => {
     // Always clear local state first so the UI updates immediately
+    profileLoadedRef.current = false;
     setSession(null);
     setUserProfile(null);
     setShowAdmin(false);
@@ -96,11 +112,23 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-2xl font-bold text-white mb-2">Loading AIVISION...</h2>
-          <p className="text-purple-200">Preparing your Eurovision experience</p>
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 64, height: 64,
+            border: '4px solid rgba(139,92,246,0.3)',
+            borderTopColor: 'var(--color-primary)',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px',
+          }} />
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', marginBottom: 8 }}>Loading...</h2>
+          <p style={{ color: 'rgba(196,181,253,0.7)' }}>Preparing your experience</p>
         </div>
       </div>
     );
@@ -120,16 +148,24 @@ function App() {
       justifyContent: 'space-between',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-        }}>
+        <div
+          onClick={() => setShowAvatarCrop(true)}
+          title="Change profile picture"
+          style={{
+            width: '40px',
+            height: '40px',
+            background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            cursor: 'pointer',
+            transition: 'transform 0.2s ease',
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
           {userProfile?.avatar_url ? (
             <img
               src={userProfile.avatar_url}
@@ -148,8 +184,8 @@ function App() {
                 marginLeft: '8px',
                 fontSize: '0.7rem',
                 fontWeight: 700,
-                color: '#fbbf24',
-                background: 'rgba(251,191,36,0.15)',
+                color: '#c084fc',
+                background: 'rgba(139,92,246,0.15)',
                 padding: '2px 8px',
                 borderRadius: '6px',
                 verticalAlign: 'middle',
@@ -160,6 +196,29 @@ function App() {
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          onClick={toggleMode}
+          title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            background: mode === 'light' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
+            border: `1px solid ${mode === 'light' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)'}`,
+            borderRadius: '10px',
+            color: mode === 'light' ? '#475569' : 'rgba(196,181,253,0.7)',
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            width: 'auto',
+            margin: 0,
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {mode === 'dark' ? <Sun style={{ width: '14px', height: '14px' }} /> : <Moon style={{ width: '14px', height: '14px' }} />}
+          <span>{mode === 'dark' ? 'Light' : 'Dark'}</span>
+        </button>
         {userIsAdmin && (
           <button
             onClick={() => setShowAdmin(!showAdmin)}
@@ -168,10 +227,10 @@ function App() {
               alignItems: 'center',
               gap: '6px',
               padding: '8px 14px',
-              background: showAdmin ? 'rgba(251,191,36,0.25)' : 'rgba(251,191,36,0.1)',
-              border: '1px solid rgba(251,191,36,0.3)',
+              background: showAdmin ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.1)',
+              border: '1px solid rgba(139,92,246,0.3)',
               borderRadius: '10px',
-              color: '#fbbf24',
+              color: '#c084fc',
               cursor: 'pointer',
               fontSize: '0.85rem',
               fontWeight: 500,
@@ -238,9 +297,26 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+
+        {showAvatarCrop && userProfile && (
+          <AvatarCropModal
+            userProfile={userProfile}
+            onSave={(url) => {
+              setUserProfile(prev => ({ ...prev, avatar_url: url }));
+              setShowAvatarCrop(false);
+            }}
+            onClose={() => setShowAvatarCrop(false)}
+          />
+        )}
       </div>
     </Router>
   );
 }
 
-export default App;
+const AppWithTheme = () => (
+  <ThemeProvider>
+    <App />
+  </ThemeProvider>
+);
+
+export default AppWithTheme;
