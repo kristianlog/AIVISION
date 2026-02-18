@@ -6,7 +6,7 @@ import KaraokeMode from './KaraokeMode';
 import Confetti from './Confetti';
 import COUNTRY_INFO from './countryInfo';
 
-const EMOJI_OPTIONS = ['\u2764\uFE0F', '\uD83D\uDD25', '\uD83D\uDC4F', '\uD83D\uDE0D', '\uD83C\uDFB5', '\uD83D\uDC83', '\uD83C\uDF1F', '\uD83D\uDE2D'];
+const EMOJI_OPTIONS = ['\u2764\uFE0F', '\uD83D\uDD25', '\uD83D\uDC4F', '\uD83C\uDFB5'];
 
 const POINTS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
 
@@ -158,9 +158,9 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     if (!userProfile?.id) return;
     const existing = reactions.find(r => r.user_id === userProfile.id && r.emoji === emoji);
 
-    // Check max 5 reactions per user per song
+    // Check max 4 reactions per user per song
     const myReactionCount = reactions.filter(r => r.user_id === userProfile.id).length;
-    if (!existing && myReactionCount >= 5) return;
+    if (!existing && myReactionCount >= 4) return;
 
     try {
       if (existing) {
@@ -668,25 +668,17 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
         <div className="song-reactions-section">
           <h3 className="detail-voting-heading">Reactions</h3>
           <div className="reactions-emoji-bar">
-            {[...EMOJI_OPTIONS]
-              .map(emoji => ({
-                emoji,
-                count: reactions.filter(r => r.emoji === emoji).length,
-                isActive: reactions.some(r => r.user_id === userProfile?.id && r.emoji === emoji),
-              }))
-              .sort((a, b) => b.count - a.count)
-              .map(({ emoji, count, isActive }) => {
-                const myReactionCount = reactions.filter(r => r.user_id === userProfile?.id).length;
-                const atLimit = !isActive && myReactionCount >= 5;
+            {EMOJI_OPTIONS.map(emoji => {
+                const count = reactions.filter(r => r.emoji === emoji).length;
+                const isActive = reactions.some(r => r.user_id === userProfile?.id && r.emoji === emoji);
                 return (
                   <button
                     key={emoji}
-                    onClick={() => !atLimit && toggleReaction(emoji)}
-                    className={`reaction-btn ${isActive ? 'reaction-btn-active' : ''} ${atLimit ? 'reaction-btn-disabled' : ''}`}
-                    title={atLimit ? 'Max 5 reactions per song' : ''}
+                    onClick={() => toggleReaction(emoji)}
+                    className={`reaction-btn ${isActive ? 'reaction-btn-active' : ''}`}
                   >
                     <span className="reaction-emoji">{emoji}</span>
-                    {count > 0 && <span className="reaction-count">{count}</span>}
+                    <span className="reaction-count">{count}</span>
                   </button>
                 );
               })}
