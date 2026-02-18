@@ -17,7 +17,7 @@ const formatTime = (s) => {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 };
 
-const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl }) => {
+const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, videoPosition }) => {
   const [selectedIndex, setSelectedIndex] = useState(
     userScore ? POINTS.indexOf(userScore) : 4
   );
@@ -471,6 +471,7 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
               loop
               playsInline
               className="detail-bg-video-el"
+              style={videoPosition ? { objectPosition: `${videoPosition.posX}% ${videoPosition.posY}%` } : undefined}
             />
           </div>
         )}

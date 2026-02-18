@@ -104,7 +104,7 @@ const EurovisionVoting = ({ userProfile }) => {
         const { data } = await supabase.from('country_videos').select('*');
         if (data) {
           const videoMap = {};
-          data.forEach(v => { videoMap[v.country_id] = v.video_url; });
+          data.forEach(v => { videoMap[v.country_id] = { url: v.video_url, posX: v.position_x ?? 50, posY: v.position_y ?? 50 }; });
           setCountryVideos(videoMap);
         }
       } catch {
@@ -517,7 +517,8 @@ const EurovisionVoting = ({ userProfile }) => {
                   song={song}
                   userScore={userVotes[song.id]}
                   onClick={() => setSelectedSong(song)}
-                  videoUrl={countryVideos[song.id]}
+                  videoUrl={countryVideos[song.id]?.url}
+                  videoPosition={countryVideos[song.id]}
                 />
               ))}
             </div>
@@ -731,7 +732,8 @@ const EurovisionVoting = ({ userProfile }) => {
           onVote={handleVote}
           onClose={() => setSelectedSong(null)}
           userProfile={userProfile}
-          videoUrl={countryVideos[selectedSong.id]}
+          videoUrl={countryVideos[selectedSong.id]?.url}
+          videoPosition={countryVideos[selectedSong.id]}
         />
       )}
 

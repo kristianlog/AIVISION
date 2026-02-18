@@ -2754,6 +2754,21 @@ input:focus {
 
 .admin-video-preview {
   position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+.admin-video-preview:active {
+  cursor: grabbing;
+}
+
+.admin-video-repositioning {
+  cursor: grabbing !important;
+}
+
+.admin-video-repositioning .admin-video-player {
+  pointer-events: none;
 }
 
 .admin-video-player {
@@ -2761,6 +2776,30 @@ input:focus {
   height: 120px;
   object-fit: cover;
   display: block;
+  pointer-events: none;
+}
+
+.admin-video-reposition-hint {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.8);
+  font-size: 0.6rem;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.admin-video-preview:hover .admin-video-reposition-hint {
+  opacity: 1;
 }
 
 .admin-video-status {

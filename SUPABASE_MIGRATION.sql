@@ -46,8 +46,16 @@ CREATE TABLE IF NOT EXISTS country_videos (
   country_id TEXT NOT NULL UNIQUE,
   video_url TEXT NOT NULL,
   uploaded_by UUID REFERENCES auth.users(id),
+  position_x REAL DEFAULT 50,
+  position_y REAL DEFAULT 50,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add position columns if they don't exist (safe for existing installs)
+DO $$ BEGIN
+  ALTER TABLE country_videos ADD COLUMN IF NOT EXISTS position_x REAL DEFAULT 50;
+  ALTER TABLE country_videos ADD COLUMN IF NOT EXISTS position_y REAL DEFAULT 50;
+END $$;
 
 ALTER TABLE country_videos ENABLE ROW LEVEL SECURITY;
 

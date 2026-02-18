@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Music, Star } from 'lucide-react';
 
-const SongCard = ({ song, userScore, onClick, videoUrl }) => {
+const SongCard = ({ song, userScore, onClick, videoUrl, videoPosition }) => {
   const [isHovering, setIsHovering] = useState(false);
   const videoRef = useRef(null);
 
@@ -39,6 +39,7 @@ const SongCard = ({ song, userScore, onClick, videoUrl }) => {
             playsInline
             preload="metadata"
             className="song-card-video"
+            style={videoPosition ? { objectPosition: `${videoPosition.posX}% ${videoPosition.posY}%` } : undefined}
           />
         </div>
       )}

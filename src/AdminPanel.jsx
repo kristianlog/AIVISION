@@ -210,6 +210,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
   // Video upload state
   const [videoUploading, setVideoUploading] = useState({});
   const videoInputRefs = useRef({});
+  const [videoDragging, setVideoDragging] = useState(null); // { countryId, startX, startY, startPosX, startPosY }
 
   useEffect(() => {
     loadData();
@@ -562,6 +563,69 @@ const AdminPanel = ({ onBack, userProfile }) => {
       showMessage(err.message, 'error');
     }
   };
+
+  const handleVideoPositionSave = async (countryId, posX, posY) => {
+    const clamped = { x: Math.max(0, Math.min(100, posX)), y: Math.max(0, Math.min(100, posY)) };
+    setCountryVideos(prev => ({
+      ...prev,
+      [countryId]: { ...prev[countryId], position_x: clamped.x, position_y: clamped.y }
+    }));
+    try {
+      await supabase.from('country_videos')
+        .update({ position_x: clamped.x, position_y: clamped.y })
+        .eq('country_id', countryId);
+    } catch { /* silent */ }
+  };
+
+  const onVideoDragStart = (e, countryId, video) => {
+    e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    setVideoDragging({
+      countryId,
+      startX: clientX,
+      startY: clientY,
+      startPosX: video.position_x ?? 50,
+      startPosY: video.position_y ?? 50,
+    });
+  };
+
+  useEffect(() => {
+    if (!videoDragging) return;
+    const onMove = (e) => {
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const dx = clientX - videoDragging.startX;
+      const dy = clientY - videoDragging.startY;
+      // Moving mouse right => decrease posX (shift video left to reveal right side)
+      const newX = Math.max(0, Math.min(100, videoDragging.startPosX - dx * 0.5));
+      const newY = Math.max(0, Math.min(100, videoDragging.startPosY - dy * 0.5));
+      setCountryVideos(prev => ({
+        ...prev,
+        [videoDragging.countryId]: { ...prev[videoDragging.countryId], position_x: newX, position_y: newY }
+      }));
+    };
+    const onUp = (e) => {
+      const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+      const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+      const dx = clientX - videoDragging.startX;
+      const dy = clientY - videoDragging.startY;
+      const finalX = Math.max(0, Math.min(100, videoDragging.startPosX - dx * 0.5));
+      const finalY = Math.max(0, Math.min(100, videoDragging.startPosY - dy * 0.5));
+      handleVideoPositionSave(videoDragging.countryId, finalX, finalY);
+      setVideoDragging(null);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+  }, [videoDragging]);
 
   // Country list for video uploads — derived from all songs so new countries appear automatically
   const videoCountries = useMemo(() => {
@@ -1080,16 +1144,26 @@ const AdminPanel = ({ onBack, userProfile }) => {
                   </div>
 
                   {video ? (
-                    <div className="admin-video-preview">
+                    <div
+                      className={`admin-video-preview ${videoDragging?.countryId === country.id ? 'admin-video-repositioning' : ''}`}
+                      onMouseDown={e => onVideoDragStart(e, country.id, video)}
+                      onTouchStart={e => onVideoDragStart(e, country.id, video)}
+                      onMouseEnter={e => { if (!videoDragging) { const v = e.currentTarget.querySelector('video'); if (v) v.play().catch(() => {}); } }}
+                      onMouseLeave={e => { const v = e.currentTarget.querySelector('video'); if (v) { v.pause(); v.currentTime = 0; } }}
+                      style={{ cursor: videoDragging?.countryId === country.id ? 'grabbing' : 'grab' }}
+                    >
                       <video
                         src={video.video_url}
                         muted
                         loop
                         playsInline
-                        onMouseEnter={e => e.target.play()}
-                        onMouseLeave={e => { e.target.pause(); e.target.currentTime = 0; }}
                         className="admin-video-player"
+                        style={{ objectPosition: `${video.position_x ?? 50}% ${video.position_y ?? 50}%` }}
                       />
+                      <div className="admin-video-reposition-hint">
+                        <GripVertical size={12} />
+                        <span>Drag to reposition</span>
+                      </div>
                       <div className="admin-video-status admin-video-status-active">
                         <CheckCircle size={14} />
                         <span>Video active</span>
