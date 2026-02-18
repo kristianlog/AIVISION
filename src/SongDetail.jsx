@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Star, Check, Play, Pause, SkipBack, Send, Mic2, Info, Trophy, MapPin, Calendar, Users } from 'lucide-react';
+import { X, Star, Check, Play, Pause, SkipBack, Send, Mic2, Info, Trophy, MapPin, Calendar, Users, Trash2 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import useFlagColors from './useFlagColors';
 import KaraokeMode from './KaraokeMode';
@@ -223,6 +223,13 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     setCommentSaving(false);
   };
 
+  const deleteComment = async (commentId) => {
+    setComments(prev => prev.filter(c => c.id !== commentId));
+    try {
+      await supabase.from('song_comments').delete().eq('id', commentId);
+    } catch { /* keep optimistic state */ }
+  };
+
   // Audio event listeners
   useEffect(() => {
     const audio = audioRef.current;
@@ -347,12 +354,16 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Don't capture keys when typing in an input or textarea
+      const tag = e.target.tagName;
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
+
       if (showConfirmation) {
         if (e.key === 'Escape') {
           setShowConfirmation(false);
           e.preventDefault();
         }
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !isTyping) {
           confirmVote();
           e.preventDefault();
         }
@@ -364,6 +375,9 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
         e.preventDefault();
         return;
       }
+
+      // Everything below should not fire when typing in inputs
+      if (isTyping) return;
 
       const keyMap = {
         '1': 0, '2': 1, '3': 2, '4': 3, '5': 4,
@@ -700,6 +714,15 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
                     </div>
                     <p className="comment-text">{c.text}</p>
                   </div>
+                  {c.user_id === userProfile?.id && (
+                    <button
+                      onClick={() => deleteComment(c.id)}
+                      className="comment-delete-btn"
+                      title="Delete comment"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
