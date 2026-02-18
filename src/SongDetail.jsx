@@ -131,23 +131,29 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     };
     const loadComments = async () => {
       try {
-        // Try with profile join first
+        // Load comments
         const { data, error } = await supabase
-          .from('song_comments')
-          .select('*, profiles(name, avatar_url)')
-          .eq('song_id', song.id)
-          .order('created_at', { ascending: true });
-        if (!error && data) {
-          setComments(data);
-          return;
-        }
-        // Fallback: load without join
-        const { data: plainData } = await supabase
           .from('song_comments')
           .select('*')
           .eq('song_id', song.id)
           .order('created_at', { ascending: true });
-        if (plainData) setComments(plainData);
+        if (error || !data) return;
+
+        // Fetch profiles for all comment authors
+        const userIds = [...new Set(data.map(c => c.user_id))];
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, name, avatar_url')
+            .in('id', userIds);
+          const profileMap = {};
+          (profiles || []).forEach(p => { profileMap[p.id] = p; });
+          data.forEach(c => {
+            const p = profileMap[c.user_id];
+            c.profiles = p ? { name: p.name, avatar_url: p.avatar_url } : null;
+          });
+        }
+        setComments(data);
       } catch { /* table may not exist */ }
     };
     loadReactions();
