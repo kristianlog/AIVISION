@@ -1130,8 +1130,8 @@ const AdminPanel = ({ onBack, userProfile }) => {
       {activeSection === 'users' && (
         <div className="admin-section">
           <div className="admin-section-header">
-            <h2>User Votes</h2>
-            <p className="admin-section-desc">See who has voted and their vote breakdown.</p>
+            <h2>Registered Users</h2>
+            <p className="admin-section-desc">All registered users and their vote breakdown.</p>
           </div>
 
           {(() => {
@@ -1142,11 +1142,12 @@ const AdminPanel = ({ onBack, userProfile }) => {
               userVoteMap[v.user_id].push(v);
             });
 
-            const userEntries = Object.entries(userVoteMap)
-              .map(([userId, votes]) => {
-                const profile = allUsers.find(u => u.id === userId);
+            // Build entries from ALL profiles, not just voters
+            const userEntries = allUsers
+              .map(profile => {
+                const votes = userVoteMap[profile.id] || [];
                 const totalPts = votes.reduce((s, v) => s + v.score, 0);
-                return { userId, votes, profile, totalPts, voteCount: votes.length };
+                return { userId: profile.id, votes, profile, totalPts, voteCount: votes.length };
               })
               .sort((a, b) => b.totalPts - a.totalPts);
 
@@ -1154,8 +1155,8 @@ const AdminPanel = ({ onBack, userProfile }) => {
               return (
                 <div className="ev-empty">
                   <Users size={48} className="ev-empty-icon" />
-                  <p className="ev-empty-title">No votes yet</p>
-                  <p className="ev-empty-sub">Votes will appear here once users start voting.</p>
+                  <p className="ev-empty-title">No users yet</p>
+                  <p className="ev-empty-sub">Users will appear here once they register.</p>
                 </div>
               );
             }
@@ -1165,28 +1166,36 @@ const AdminPanel = ({ onBack, userProfile }) => {
                 {userEntries.map(({ userId, votes, profile, totalPts, voteCount }) => (
                   <div key={userId} className="admin-user-row">
                     <div className="admin-user-avatar">
-                      {(profile?.display_name || profile?.email || userId).charAt(0).toUpperCase()}
+                      {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        (profile?.name || '?').charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div className="admin-user-info">
                       <p className="admin-user-name">
-                        {profile?.display_name || profile?.email || `User ${userId.slice(0, 8)}...`}
+                        {profile?.name || `User ${userId.slice(0, 8)}...`}
                       </p>
-                      <div className="admin-user-votes">
-                        {votes
-                          .sort((a, b) => b.score - a.score)
-                          .slice(0, 8)
-                          .map(v => {
-                            const song = allSongs.find(s => s.id === v.song_id);
-                            return (
-                              <span key={v.song_id} className="admin-user-vote-chip">
-                                {song?.flag || ''} {v.score}pts
-                              </span>
-                            );
-                          })}
-                        {votes.length > 8 && (
-                          <span className="admin-user-vote-chip">+{votes.length - 8} more</span>
-                        )}
-                      </div>
+                      {votes.length > 0 ? (
+                        <div className="admin-user-votes">
+                          {votes
+                            .sort((a, b) => b.score - a.score)
+                            .slice(0, 8)
+                            .map(v => {
+                              const song = allSongs.find(s => s.id === v.song_id);
+                              return (
+                                <span key={v.song_id} className="admin-user-vote-chip">
+                                  {song?.flag || ''} {v.score}pts
+                                </span>
+                              );
+                            })}
+                          {votes.length > 8 && (
+                            <span className="admin-user-vote-chip">+{votes.length - 8} more</span>
+                          )}
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '0.75rem', color: 'rgba(196,181,253,0.4)', margin: 0 }}>No votes yet</p>
+                      )}
                     </div>
                     <div className="admin-user-stats">
                       <div className="admin-user-stat">
