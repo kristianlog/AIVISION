@@ -162,32 +162,26 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     const myReactionCount = reactions.filter(r => r.user_id === userProfile.id).length;
     if (!existing && myReactionCount >= 4) return;
 
-    try {
-      if (existing) {
-        setReactions(prev => prev.filter(r => r.id !== existing.id));
+    if (existing) {
+      setReactions(prev => prev.filter(r => r.id !== existing.id));
+      try {
         await supabase.from('song_reactions').delete().eq('id', existing.id);
-      } else {
-        // Optimistic add
-        const tempId = 'temp_' + Date.now();
-        const optimistic = { id: tempId, user_id: userProfile.id, song_id: song.id, emoji };
-        setReactions(prev => [...prev, optimistic]);
+      } catch { /* keep optimistic state */ }
+    } else {
+      // Optimistic add — never rolled back
+      const tempId = 'temp_' + Date.now();
+      const optimistic = { id: tempId, user_id: userProfile.id, song_id: song.id, emoji };
+      setReactions(prev => [...prev, optimistic]);
 
-        const { data, error } = await supabase.from('song_reactions')
+      try {
+        const { data } = await supabase.from('song_reactions')
           .insert({ user_id: userProfile.id, song_id: song.id, emoji })
           .select()
           .single();
         if (data) {
           setReactions(prev => prev.map(r => r.id === tempId ? data : r));
-        } else if (error) {
-          setReactions(prev => prev.filter(r => r.id !== tempId));
         }
-      }
-    } catch {
-      // Reload on error
-      try {
-        const { data } = await supabase.from('song_reactions').select('*').eq('song_id', song.id);
-        if (data) setReactions(data);
-      } catch { /* */ }
+      } catch { /* keep optimistic state even if DB fails */ }
     }
   };
 

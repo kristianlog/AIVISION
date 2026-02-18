@@ -90,7 +90,47 @@ CREATE POLICY "Anyone can update songs"
 CREATE POLICY "Anyone can delete songs"
   ON custom_songs FOR DELETE USING (true);
 
--- 4. Create storage bucket for media uploads (audio + video)
+-- 4. Song reactions table
+CREATE TABLE IF NOT EXISTS song_reactions (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) NOT NULL,
+  song_id TEXT NOT NULL,
+  emoji TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE song_reactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view reactions"
+  ON song_reactions FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert own reactions"
+  ON song_reactions FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own reactions"
+  ON song_reactions FOR DELETE USING (auth.uid() = user_id);
+
+-- 5. Song comments table
+CREATE TABLE IF NOT EXISTS song_comments (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) NOT NULL,
+  song_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE song_comments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view comments"
+  ON song_comments FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert own comments"
+  ON song_comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own comments"
+  ON song_comments FOR DELETE USING (auth.uid() = user_id);
+
+-- 6. Create storage bucket for media uploads (audio + video)
 -- Run these separately if they fail (bucket might already exist)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('media', 'media', true)
