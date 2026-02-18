@@ -3,6 +3,8 @@ import { supabase } from './supabaseClient';
 import { useTheme, THEME_PRESETS } from './ThemeContext';
 import SONGS from './songs';
 import LyricsTimingEditor from './LyricsTimingEditor';
+import SongCard from './SongCard';
+import SongDetail from './SongDetail';
 import {
   ArrowLeft, Upload, Music, Video, Trash2, Plus, Save, X, Film,
   CheckCircle, AlertCircle, Loader2, Pencil, Clock,
@@ -1840,43 +1842,16 @@ const AdminPanel = ({ onBack, userProfile }) => {
         </div>
       )}
 
-      {/* Song Preview Modal */}
+      {/* Song Preview — renders the actual voter components */}
       {previewSong && (
-        <div className="admin-form-overlay" onClick={() => setPreviewSong(null)}>
-          <div className="admin-preview-modal" onClick={e => e.stopPropagation()}>
-            <button className="admin-form-close" onClick={() => setPreviewSong(null)}>
-              <X size={20} />
-            </button>
-            <div className="admin-preview-card">
-              {previewSong.cover_url ? (
-                previewSong.cover_url.match(/\.mp4/i) ? (
-                  <video src={previewSong.cover_url} autoPlay muted loop playsInline className="admin-preview-cover" />
-                ) : (
-                  <img src={previewSong.cover_url} alt="" className="admin-preview-cover" />
-                )
-              ) : (
-                <div className="admin-preview-cover-placeholder">
-                  <span className="admin-preview-flag">{previewSong.flag}</span>
-                </div>
-              )}
-              <div className="admin-preview-info">
-                <p className="admin-preview-country">{previewSong.flag} {previewSong.country}</p>
-                <p className="admin-preview-title">{previewSong.title || 'Untitled'}</p>
-                <p className="admin-preview-artist">{previewSong.artist || 'No artist'}</p>
-                <span className="admin-badge" style={{ alignSelf: 'flex-start', marginTop: 4 }}>{previewSong.genre || 'No genre'}</span>
-              </div>
-              {previewSong.audio_url && (
-                <audio controls src={previewSong.audio_url} className="admin-preview-audio" />
-              )}
-              {previewSong.lyrics && (
-                <div className="admin-preview-lyrics">
-                  <p className="admin-preview-lyrics-title">Lyrics</p>
-                  <pre className="admin-preview-lyrics-text">{previewSong.lyrics}</pre>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <SongDetail
+          song={previewSong}
+          userScore={null}
+          onVote={() => { showMessage('Preview only — votes are not saved', 'error'); }}
+          onClose={() => setPreviewSong(null)}
+          userProfile={userProfile}
+          videoUrl={countryVideos[previewSong.id]?.video_url}
+        />
       )}
 
       {/* Lyrics Timing Editor Modal */}
