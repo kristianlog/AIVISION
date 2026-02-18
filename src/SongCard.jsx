@@ -28,6 +28,17 @@ const SongCard = ({ song, userScore, onClick, videoUrl, videoPosition }) => {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
+      {/* Cover art thumbnail */}
+      {song.cover_url && (
+        <div className="song-card-cover-bg">
+          {song.cover_url.endsWith('.mp4') ? (
+            <video src={song.cover_url} muted loop playsInline autoPlay className="song-card-cover-media" />
+          ) : (
+            <img src={song.cover_url} alt="" className="song-card-cover-media" />
+          )}
+        </div>
+      )}
+
       {/* Video overlay on hover */}
       {videoUrl && (
         <div className={`song-card-video-overlay ${isHovering ? 'song-card-video-visible' : ''}`}>

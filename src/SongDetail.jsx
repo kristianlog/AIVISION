@@ -121,7 +121,7 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
     loadRatings();
   }, [song.id, userProfile?.id]);
 
-  // Load reactions & comments
+  // Load reactions & comments + real-time subscriptions
   useEffect(() => {
     const loadReactions = async () => {
       try {
@@ -131,7 +131,6 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
     };
     const loadComments = async () => {
       try {
-        // Load comments
         const { data, error } = await supabase
           .from('song_comments')
           .select('*')
@@ -139,7 +138,6 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
           .order('created_at', { ascending: true });
         if (error || !data) return;
 
-        // Fetch profiles for all comment authors
         const userIds = [...new Set(data.map(c => c.user_id))];
         if (userIds.length > 0) {
           const { data: profiles } = await supabase
@@ -158,6 +156,30 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
     };
     loadReactions();
     loadComments();
+
+    // Real-time subscriptions for this song
+    const channels = [];
+    try {
+      const reactionsChannel = supabase
+        .channel(`realtime-reactions-${song.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'song_reactions',
+          filter: `song_id=eq.${song.id}` }, () => loadReactions())
+        .subscribe();
+      channels.push(reactionsChannel);
+    } catch { /* */ }
+
+    try {
+      const commentsChannel = supabase
+        .channel(`realtime-comments-${song.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'song_comments',
+          filter: `song_id=eq.${song.id}` }, () => loadComments())
+        .subscribe();
+      channels.push(commentsChannel);
+    } catch { /* */ }
+
+    return () => {
+      channels.forEach(ch => supabase.removeChannel(ch));
+    };
   }, [song.id]);
 
   const toggleReaction = async (emoji) => {

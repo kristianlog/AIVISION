@@ -197,6 +197,28 @@ input:focus {
   animation: fadeIn 0.3s ease;
 }
 
+/* ─── Voting Deadline ─────────────────────────────────── */
+.ev-deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  margin-top: 12px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 20px;
+  color: #fbbf24;
+  font-size: 0.85rem;
+  font-weight: 600;
+  animation: fadeIn 0.3s ease;
+}
+
+.ev-deadline-closed {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
 .ev-badge:hover {
   background: rgba(255, 255, 255, 0.12);
   transform: translateY(-2px);
@@ -246,6 +268,39 @@ input:focus {
   background: rgba(139, 92, 246, 0.3);
   border-color: rgba(139, 92, 246, 0.6);
   transform: translateY(-1px);
+}
+
+/* ─── Global Toast ────────────────────────────────────── */
+.global-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  z-index: 9999;
+  animation: slideDown 0.3s ease;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.global-toast-success {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+
+.global-toast-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
 }
 
 /* ─── Search and Filter ───────────────────────────────── */
@@ -391,6 +446,26 @@ input:focus {
   text-align: center;
 }
 
+.ev-tab-dot {
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  animation: pulse-dot 2s ease infinite;
+}
+
+.ev-tab {
+  position: relative;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.3); }
+}
+
 /* ─── Song Grid ────────────────────────────────────────── */
 .ev-songs-grid {
   display: grid;
@@ -496,6 +571,63 @@ input:focus {
 .song-card-vote-icon {
   width: 16px;
   height: 16px;
+}
+
+/* ─── Song Card Skeleton ──────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-pulse {
+  background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease infinite;
+  border-radius: 8px;
+}
+
+.song-card-skeleton {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-flag {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  margin: 20px 20px 8px;
+}
+
+.skeleton-body {
+  padding: 0 20px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-title {
+  height: 20px;
+  width: 75%;
+}
+
+.skeleton-artist {
+  height: 14px;
+  width: 55%;
+}
+
+.skeleton-country {
+  height: 12px;
+  width: 40%;
+}
+
+.skeleton-footer {
+  height: 40px;
+  margin: 0 20px 16px;
 }
 
 /* ─── Song Detail Modal ────────────────────────────────── */
@@ -1997,6 +2129,23 @@ input:focus {
 .song-card-footer {
   position: relative;
   z-index: 2;
+}
+
+/* ─── Song Card Cover Art Background ─────────────────── */
+.song-card-cover-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  opacity: 0.5;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.song-card-cover-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* ─── Admin Panel ─────────────────────────────────────── */
@@ -4118,7 +4267,92 @@ input:focus {
   font-weight: 700;
   font-size: 1.2rem;
   margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
 }
+
+.profile-name-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(196, 181, 253, 0.6);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.profile-name-edit-btn:hover {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.profile-name-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.profile-name-input {
+  width: auto !important;
+  max-width: 180px;
+  padding: 6px 10px !important;
+  margin-bottom: 0 !important;
+  font-size: 1rem !important;
+  font-weight: 600;
+  text-align: center;
+  border-radius: 8px !important;
+}
+
+.profile-name-save-btn,
+.profile-name-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.profile-name-save-btn {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.profile-name-save-btn:hover {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+.profile-name-cancel-btn {
+  background: rgba(239, 68, 68, 0.15);
+  color: rgba(252, 165, 165, 0.8);
+}
+
+.profile-name-cancel-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.profile-name-message {
+  font-size: 0.75rem;
+  margin: 4px 0 0;
+  color: rgba(196, 181, 253, 0.7);
+  animation: fadeIn 0.2s ease;
+}
+
 .profile-card-email {
   color: rgba(196, 181, 253, 0.5);
   font-size: 0.85rem;
@@ -4422,6 +4656,49 @@ body.light-mode {
   background: rgba(0, 0, 0, 0.05);
   border-color: rgba(0, 0, 0, 0.1);
 }
+
+.light-mode .ev-deadline {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.2);
+  color: #b45309;
+}
+
+.light-mode .ev-deadline-closed {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+
+.light-mode .song-card-skeleton {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+.light-mode .skeleton-pulse {
+  background: linear-gradient(90deg, rgba(0,0,0,0.06) 25%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.06) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease infinite;
+}
+
+.light-mode .global-toast-success {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #16a34a;
+}
+
+.light-mode .global-toast-error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+
+.light-mode .profile-card-name { display: flex; }
+.light-mode .profile-name-edit-btn {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #94a3b8;
+}
+.light-mode .profile-name-message { color: #64748b; }
 
 .light-mode .ev-tabs {
   background: rgba(0, 0, 0, 0.04);
