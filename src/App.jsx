@@ -18,6 +18,7 @@ function App() {
   const [showAvatarCrop, setShowAvatarCrop] = useState(false);
   const fetchingRef = useRef(false);
   const profileLoadedRef = useRef(false);
+  const votingRef = useRef(null);
   const { mode, toggleMode } = useTheme();
 
   const fetchUserProfile = async (userId) => {
@@ -179,7 +180,10 @@ function App() {
           )}
         </div>
         <div>
-          <p style={{ color: isLight ? '#1e293b' : 'white', fontWeight: 600, margin: 0, fontSize: '0.95rem' }}>
+          <p
+            onClick={() => { setShowAdmin(false); votingRef.current?.navigateToProfile(); }}
+            style={{ color: isLight ? '#1e293b' : 'white', fontWeight: 600, margin: 0, fontSize: '0.95rem', cursor: 'pointer' }}
+          >
             {userProfile?.name}
             {userIsAdmin && (
               <span style={{
@@ -292,7 +296,7 @@ function App() {
                   {showAdmin && userIsAdmin ? (
                     <AdminPanel onBack={() => setShowAdmin(false)} userProfile={userProfile} />
                   ) : (
-                    <EurovisionVoting userProfile={userProfile} />
+                    <EurovisionVoting ref={votingRef} userProfile={userProfile} />
                   )}
                 </div>
               )

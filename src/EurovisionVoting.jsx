@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { Music, BarChart3, Heart, RotateCcw, Search, X as XIcon, Award, Trophy, Flame, User, UserPlus, UserCheck, UserX, Pencil, Check, Clock } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { useTheme } from './ThemeContext';
@@ -12,7 +12,6 @@ const TABS = [
   { id: 'songs', label: 'Songs', icon: Music },
   { id: 'votes', label: 'My Votes', icon: Heart },
   { id: 'leaderboard', label: 'Leaderboard', icon: BarChart3 },
-  { id: 'profile', label: 'Profile', icon: User },
 ];
 
 const STORAGE_KEY = 'aivision_votes';
@@ -29,9 +28,13 @@ const SongCardSkeleton = () => (
   </div>
 );
 
-const EurovisionVoting = ({ userProfile }) => {
+const EurovisionVoting = forwardRef(({ userProfile }, ref) => {
   const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState('songs');
+
+  useImperativeHandle(ref, () => ({
+    navigateToProfile: () => setActiveTab('profile'),
+  }));
   const [selectedSong, setSelectedSong] = useState(null);
   const [userVotes, setUserVotes] = useState({});
   const [allVotes, setAllVotes] = useState([]);
@@ -643,9 +646,6 @@ const EurovisionVoting = ({ userProfile }) => {
               {tab.id === 'votes' && Object.keys(userVotes).length > 0 && (
                 <span className="ev-tab-badge">{Object.keys(userVotes).length}</span>
               )}
-              {tab.id === 'profile' && friendRequests.length > 0 && (
-                <span className="ev-tab-dot" />
-              )}
             </button>
           );
         })}
@@ -1004,15 +1004,12 @@ const EurovisionVoting = ({ userProfile }) => {
               {tab.id === 'votes' && votedCount > 0 && (
                 <span className="mobile-nav-badge">{votedCount}</span>
               )}
-              {tab.id === 'profile' && friendRequests.length > 0 && (
-                <span className="mobile-nav-badge">{friendRequests.length}</span>
-              )}
             </button>
           );
         })}
       </div>
     </div>
   );
-};
+});
 
 export default EurovisionVoting;
