@@ -9,6 +9,7 @@ import EurovisionVoting from './EurovisionVoting';
 import AdminPanel from './AdminPanel';
 import { User, LogOut, Shield, Sun, Moon } from 'lucide-react';
 import AvatarCropModal from './AvatarCropModal';
+import PWAInstallPrompt from './PWAInstallPrompt';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -305,6 +306,8 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+
+        <PWAInstallPrompt />
 
         {showAvatarCrop && userProfile && (
           <AvatarCropModal
