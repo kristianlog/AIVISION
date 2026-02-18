@@ -6,7 +6,7 @@ import LyricsTimingEditor from './LyricsTimingEditor';
 import {
   ArrowLeft, Upload, Music, Video, Trash2, Plus, Save, X, Film,
   CheckCircle, AlertCircle, Loader2, Pencil, Clock,
-  Users, Wrench, Download, Palette, Image
+  Users, Wrench, Download, Palette, Image, BarChart3, TrendingUp, Zap
 } from 'lucide-react';
 
 // Country name → ISO 3166-1 alpha-2 code (for auto-flag)
@@ -76,6 +76,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
   // User management state
   const [allVotes, setAllVotes] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [allRatings, setAllRatings] = useState([]);
 
   // Video upload state
   const [videoUploading, setVideoUploading] = useState({});
@@ -125,6 +126,12 @@ const AdminPanel = ({ onBack, userProfile }) => {
         const { data: usersData, error } = await supabase.from('profiles').select('*');
         if (!error) setAllUsers(usersData || []);
       } catch { /* profiles table may not exist yet */ }
+
+      // Load all ratings
+      try {
+        const { data: ratingsData, error } = await supabase.from('ratings').select('*');
+        if (!error) setAllRatings(ratingsData || []);
+      } catch { /* ratings table may not exist yet */ }
     } catch (err) {
       console.error('Error loading admin data:', err);
     }
@@ -1194,6 +1201,164 @@ const AdminPanel = ({ onBack, userProfile }) => {
               <div className="tools-stat-label">Songs</div>
             </div>
           </div>
+
+          {/* Analytics Dashboard */}
+          {allVotes.length > 0 && (() => {
+            // Vote distribution analysis
+            const scoreDistribution = {};
+            allVotes.forEach(v => {
+              scoreDistribution[v.score] = (scoreDistribution[v.score] || 0) + 1;
+            });
+            const maxDistCount = Math.max(...Object.values(scoreDistribution));
+
+            // Top songs by total points
+            const songPoints = {};
+            allVotes.forEach(v => {
+              songPoints[v.song_id] = (songPoints[v.song_id] || 0) + v.score;
+            });
+            const topSongs = Object.entries(songPoints)
+              .sort(([, a], [, b]) => b - a)
+              .slice(0, 5)
+              .map(([id, pts]) => ({ song: allSongs.find(s => s.id === id), pts }));
+
+            // Most controversial (highest variance)
+            const songVoteArrays = {};
+            allVotes.forEach(v => {
+              if (!songVoteArrays[v.song_id]) songVoteArrays[v.song_id] = [];
+              songVoteArrays[v.song_id].push(v.score);
+            });
+            const controversialSongs = Object.entries(songVoteArrays)
+              .filter(([, votes]) => votes.length >= 2)
+              .map(([id, votes]) => {
+                const avg = votes.reduce((s, v) => s + v, 0) / votes.length;
+                const variance = votes.reduce((s, v) => s + (v - avg) ** 2, 0) / votes.length;
+                return { song: allSongs.find(s => s.id === id), variance, avg, votes: votes.length };
+              })
+              .sort((a, b) => b.variance - a.variance)
+              .slice(0, 3);
+
+            // Average ratings by category (if ratings exist)
+            const avgRatings = allRatings.length > 0 ? {
+              lyrics: allRatings.reduce((s, r) => s + (r.lyrics_rating || 0), 0) / allRatings.length,
+              melody: allRatings.reduce((s, r) => s + (r.melody_rating || 0), 0) / allRatings.length,
+              memorable: allRatings.reduce((s, r) => s + (r.memorable_rating || 0), 0) / allRatings.length,
+            } : null;
+
+            // 12-point givers
+            const douzePointGivers = allVotes.filter(v => v.score === 12).length;
+
+            return (
+              <>
+                <p className="settings-section-title" style={{ marginTop: 0 }}>
+                  <BarChart3 size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+                  Voting Analytics
+                </p>
+
+                {/* Score Distribution */}
+                <div className="analytics-card">
+                  <p className="analytics-card-title">Score Distribution</p>
+                  <div className="analytics-bar-chart">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12].map(score => {
+                      const count = scoreDistribution[score] || 0;
+                      const pct = maxDistCount > 0 ? (count / maxDistCount) * 100 : 0;
+                      return (
+                        <div key={score} className="analytics-bar-item">
+                          <div className="analytics-bar-container">
+                            <div
+                              className="analytics-bar-fill"
+                              style={{
+                                height: `${pct}%`,
+                                background: score >= 10 ? 'linear-gradient(to top, #fbbf24, #f59e0b)' :
+                                  score >= 7 ? 'linear-gradient(to top, #ec4899, #f472b6)' :
+                                  'linear-gradient(to top, var(--color-primary), #a78bfa)',
+                              }}
+                            />
+                          </div>
+                          <span className="analytics-bar-label">{score}</span>
+                          <span className="analytics-bar-count">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="analytics-insight">
+                    <Zap size={12} /> {douzePointGivers} douze points given
+                    {douzePointGivers > 0 && ` (${((douzePointGivers / allVotes.length) * 100).toFixed(0)}% of all votes)`}
+                  </p>
+                </div>
+
+                {/* Top 5 Songs */}
+                <div className="analytics-card">
+                  <p className="analytics-card-title">Top 5 Songs</p>
+                  <div className="analytics-ranking">
+                    {topSongs.map(({ song, pts }, i) => (
+                      <div key={song?.id || i} className="analytics-rank-row">
+                        <span className="analytics-rank-num">{i + 1}</span>
+                        <span className="analytics-rank-flag">{song?.flag}</span>
+                        <div className="analytics-rank-info">
+                          <span className="analytics-rank-title">{song?.title || 'Unknown'}</span>
+                          <div className="analytics-rank-bar-bg">
+                            <div
+                              className="analytics-rank-bar-fill"
+                              style={{ width: `${topSongs[0]?.pts ? (pts / topSongs[0].pts) * 100 : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                        <span className="analytics-rank-pts">{pts} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Most Controversial */}
+                {controversialSongs.length > 0 && (
+                  <div className="analytics-card">
+                    <p className="analytics-card-title">Most Controversial</p>
+                    <p className="analytics-card-desc">Songs with the widest spread of votes</p>
+                    <div className="analytics-ranking">
+                      {controversialSongs.map(({ song, variance, avg, votes }, i) => (
+                        <div key={song?.id || i} className="analytics-rank-row">
+                          <span className="analytics-rank-flag">{song?.flag}</span>
+                          <div className="analytics-rank-info">
+                            <span className="analytics-rank-title">{song?.title || 'Unknown'}</span>
+                            <span className="analytics-rank-meta">
+                              Avg: {avg.toFixed(1)} &middot; {votes} votes &middot; Spread: {Math.sqrt(variance).toFixed(1)}
+                            </span>
+                          </div>
+                          <TrendingUp size={16} style={{ color: '#f97316', flexShrink: 0 }} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Average Ratings */}
+                {avgRatings && (
+                  <div className="analytics-card">
+                    <p className="analytics-card-title">Average Ratings Across All Songs</p>
+                    <div className="analytics-avg-ratings">
+                      {[
+                        { label: 'Lyrics', emoji: '✏️', value: avgRatings.lyrics },
+                        { label: 'Melody', emoji: '🎵', value: avgRatings.melody },
+                        { label: 'Memorable', emoji: '💫', value: avgRatings.memorable },
+                      ].map(r => (
+                        <div key={r.label} className="analytics-avg-item">
+                          <span className="analytics-avg-emoji">{r.emoji}</span>
+                          <div className="analytics-avg-info">
+                            <span className="analytics-avg-label">{r.label}</span>
+                            <div className="analytics-avg-bar-bg">
+                              <div className="analytics-avg-bar-fill" style={{ width: `${(r.value / 10) * 100}%` }} />
+                            </div>
+                          </div>
+                          <span className="analytics-avg-value">{r.value.toFixed(1)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="analytics-insight">Based on {allRatings.length} rating{allRatings.length !== 1 ? 's' : ''}</p>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Export Votes */}
           <div className="tools-action-card">

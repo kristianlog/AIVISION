@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Star, Check, Play, Pause, SkipBack, Send } from 'lucide-react';
+import { X, Star, Check, Play, Pause, SkipBack, Send, Mic2, Info, Trophy, MapPin, Calendar, Users } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import useFlagColors from './useFlagColors';
+import KaraokeMode from './KaraokeMode';
+import Confetti from './Confetti';
+import COUNTRY_INFO from './countryInfo';
 
 const EMOJI_OPTIONS = ['\u2764\uFE0F', '\uD83D\uDD25', '\uD83D\uDC4F', '\uD83D\uDE0D', '\uD83C\uDFB5', '\uD83D\uDC83', '\uD83C\uDF1F', '\uD83D\uDE2D'];
 
@@ -40,6 +43,16 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [commentSaving, setCommentSaving] = useState(false);
+
+  // Karaoke mode
+  const [showKaraoke, setShowKaraoke] = useState(false);
+
+  // Country info
+  const [showCountryInfo, setShowCountryInfo] = useState(false);
+  const countryInfo = COUNTRY_INFO[song.id] || null;
+
+  // Confetti
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const hasAudio = !!song.audio_url;
 
@@ -332,7 +345,9 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     onVote(song.id, sliderValue);
     setShowConfirmation(false);
     setSaved(true);
+    setShowConfetti(true);
     setTimeout(() => setSaved(false), 1500);
+    setTimeout(() => setShowConfetti(false), 3500);
   }, [onVote, song.id, sliderValue]);
 
   // Keyboard shortcuts
@@ -479,6 +494,58 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Karaoke button + Country Info button */}
+        <div className="detail-action-bar">
+          {hasAudio && song.lyrics && (
+            <button onClick={() => setShowKaraoke(true)} className="detail-karaoke-btn">
+              <Mic2 size={16} />
+              <span>Karaoke Mode</span>
+            </button>
+          )}
+          {countryInfo && (
+            <button onClick={() => setShowCountryInfo(!showCountryInfo)} className="detail-info-btn">
+              <Info size={16} />
+              <span>{showCountryInfo ? 'Hide Info' : 'Country Info'}</span>
+            </button>
+          )}
+        </div>
+
+        {/* Country Info Card */}
+        {showCountryInfo && countryInfo && (
+          <div className="country-info-card">
+            <div className="country-info-header">
+              <span className="country-info-flag">{song.flag}</span>
+              <div>
+                <h4 className="country-info-name">{song.country}</h4>
+                <p className="country-info-capital"><MapPin size={12} /> {countryInfo.capital}</p>
+              </div>
+            </div>
+            <div className="country-info-stats">
+              <div className="country-info-stat">
+                <Trophy size={14} />
+                <span>{countryInfo.eurovisionWins} win{countryInfo.eurovisionWins !== 1 ? 's' : ''}</span>
+              </div>
+              <div className="country-info-stat">
+                <Calendar size={14} />
+                <span>Since {countryInfo.firstEntry}</span>
+              </div>
+              <div className="country-info-stat">
+                <Users size={14} />
+                <span>{countryInfo.population}</span>
+              </div>
+            </div>
+            <p className="country-info-fact">{countryInfo.funFact}</p>
+            {countryInfo.famousActs.length > 0 && (
+              <div className="country-info-acts">
+                <span className="country-info-acts-label">Famous acts:</span>
+                {countryInfo.famousActs.map(act => (
+                  <span key={act} className="country-info-act-chip">{act}</span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -669,6 +736,14 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
             </button>
           </div>
         </div>
+
+        {/* Confetti */}
+        <Confetti active={showConfetti} />
+
+        {/* Karaoke Mode */}
+        {showKaraoke && (
+          <KaraokeMode song={song} onClose={() => setShowKaraoke(false)} />
+        )}
 
         {/* Vote Confirmation Modal */}
         {showConfirmation && (

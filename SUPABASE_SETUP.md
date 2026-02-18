@@ -242,6 +242,38 @@ CREATE POLICY "Users can delete their own reactions"
 
 Available emojis: ❤️ 🔥 👏 😍 🎵 💃 🌟 😭
 
+### friends
+
+Friend relationships between users with pending/accepted status.
+
+```sql
+CREATE TABLE friends (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  requester_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  addressee_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (requester_id, addressee_id)
+);
+
+ALTER TABLE friends ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own friendships"
+  ON friends FOR SELECT
+  USING (auth.uid() = requester_id OR auth.uid() = addressee_id);
+
+CREATE POLICY "Users can send friend requests"
+  ON friends FOR INSERT WITH CHECK (auth.uid() = requester_id);
+
+CREATE POLICY "Users can update friendships they're part of"
+  ON friends FOR UPDATE
+  USING (auth.uid() = requester_id OR auth.uid() = addressee_id);
+
+CREATE POLICY "Users can delete friendships they're part of"
+  ON friends FOR DELETE
+  USING (auth.uid() = requester_id OR auth.uid() = addressee_id);
+```
+
 ### song_comments
 
 User comments on songs with profile join support.
@@ -434,7 +466,17 @@ CREATE TABLE IF NOT EXISTS song_reactions (
   UNIQUE (user_id, song_id, emoji)
 );
 
--- 8. Song Comments
+-- 8. Friends
+CREATE TABLE IF NOT EXISTS friends (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  requester_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  addressee_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (requester_id, addressee_id)
+);
+
+-- 9. Song Comments
 CREATE TABLE IF NOT EXISTS song_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -456,6 +498,7 @@ ALTER TABLE custom_songs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE country_videos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE song_reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE friends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE song_comments ENABLE ROW LEVEL SECURITY;
 
 -- Profiles
@@ -514,6 +557,19 @@ CREATE POLICY "Users can insert their own reactions"
 CREATE POLICY "Users can delete their own reactions"
   ON song_reactions FOR DELETE USING (auth.uid() = user_id);
 
+-- Friends
+CREATE POLICY "Users can view their own friendships"
+  ON friends FOR SELECT
+  USING (auth.uid() = requester_id OR auth.uid() = addressee_id);
+CREATE POLICY "Users can send friend requests"
+  ON friends FOR INSERT WITH CHECK (auth.uid() = requester_id);
+CREATE POLICY "Users can update friendships they're part of"
+  ON friends FOR UPDATE
+  USING (auth.uid() = requester_id OR auth.uid() = addressee_id);
+CREATE POLICY "Users can delete friendships they're part of"
+  ON friends FOR DELETE
+  USING (auth.uid() = requester_id OR auth.uid() = addressee_id);
+
 -- Song Comments
 CREATE POLICY "Comments are viewable by everyone"
   ON song_comments FOR SELECT USING (true);
@@ -561,6 +617,7 @@ profiles (id, name, email, avatar_url)
     ├──→ ratings (user_id, song_id, lyrics/melody/memorable)
     ├──→ song_reactions (user_id, song_id, emoji)
     ├──→ song_comments (user_id, song_id, text)
+    ├──→ friends (requester_id ↔ addressee_id, status)
     └──→ country_videos (uploaded_by)
 
 custom_songs (id, country, artist, title, genre, lyrics, audio_url, ...)
