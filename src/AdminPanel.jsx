@@ -3,10 +3,13 @@ import { supabase } from './supabaseClient';
 import { useTheme, THEME_PRESETS } from './ThemeContext';
 import SONGS from './songs';
 import LyricsTimingEditor from './LyricsTimingEditor';
+import SongCard from './SongCard';
+import SongDetail from './SongDetail';
 import {
   ArrowLeft, Upload, Music, Video, Trash2, Plus, Save, X, Film,
   CheckCircle, AlertCircle, Loader2, Pencil, Clock,
-  Users, Wrench, Download, Palette, Image
+  Users, Wrench, Download, Palette, Image, BarChart3, TrendingUp, Zap,
+  Search, Play, Pause, GripVertical, Eye, EyeOff
 } from 'lucide-react';
 
 // Country name → ISO 3166-1 alpha-2 code (for auto-flag)
@@ -46,7 +49,13 @@ const AdminPanel = ({ onBack, userProfile }) => {
   const [themeForm, setThemeForm] = useState({ ...theme });
   const [confirmAction, setConfirmAction] = useState(null);
   const [songSubTab, setSongSubTab] = useState('list'); // 'list' | 'videos'
+  const [songFilter, setSongFilter] = useState('all'); // 'all' | 'ready' | 'not-ready'
+  const [songSearch, setSongSearch] = useState('');
   const [logoUploading, setLogoUploading] = useState(false);
+  const [playingSongId, setPlayingSongId] = useState(null);
+  const audioPreviewRef = useRef(null);
+  const [draggedSongId, setDraggedSongId] = useState(null);
+  const [previewSong, setPreviewSong] = useState(null);
 
   // Merge built-in songs with custom songs (custom overrides built-in by ID), sorted alphabetically by country
   const allSongs = useMemo(() => {
@@ -58,6 +67,126 @@ const AdminPanel = ({ onBack, userProfile }) => {
       .map(s => ({ ...s, _isBuiltIn: false }));
     return [...merged, ...customOnly].sort((a, b) => a.country.localeCompare(b.country));
   }, [songs]);
+
+  // Song readiness: a song is "ready" if it has artist, title, lyrics, and audio
+  const isSongReady = (song) =>
+    !!(song.artist && song.title && song.lyrics && song.audio_url);
+
+  // Apply search filter first
+  const searchedSongs = useMemo(() => {
+    if (!songSearch.trim()) return allSongs;
+    const q = songSearch.toLowerCase();
+    return allSongs.filter(s =>
+      s.country?.toLowerCase().includes(q) ||
+      s.title?.toLowerCase().includes(q) ||
+      s.artist?.toLowerCase().includes(q)
+    );
+  }, [allSongs, songSearch]);
+
+  const readySongs = useMemo(() => searchedSongs.filter(isSongReady), [searchedSongs]);
+  const notReadySongs = useMemo(() => searchedSongs.filter(s => !isSongReady(s)), [searchedSongs]);
+
+  const filteredSongs = useMemo(() => {
+    if (songFilter === 'ready') return readySongs;
+    if (songFilter === 'not-ready') return notReadySongs;
+    return searchedSongs;
+  }, [searchedSongs, readySongs, notReadySongs, songFilter]);
+
+  // What's missing for a not-ready song
+  const getMissing = (song) => {
+    const missing = [];
+    if (!song.artist) missing.push('artist');
+    if (!song.title) missing.push('title');
+    if (!song.lyrics) missing.push('lyrics');
+    if (!song.audio_url) missing.push('audio');
+    return missing;
+  };
+
+  // Audio preview
+  const handlePlayPreview = (song) => {
+    if (playingSongId === song.id) {
+      audioPreviewRef.current?.pause();
+      setPlayingSongId(null);
+      return;
+    }
+    if (audioPreviewRef.current) {
+      audioPreviewRef.current.pause();
+    }
+    const audio = new Audio(song.audio_url);
+    audio.volume = 0.5;
+    audio.onended = () => setPlayingSongId(null);
+    audio.play();
+    audioPreviewRef.current = audio;
+    setPlayingSongId(song.id);
+  };
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => { audioPreviewRef.current?.pause(); };
+  }, []);
+
+  // Drag & drop reordering
+  const handleDragStart = (songId) => setDraggedSongId(songId);
+
+  const handleDrop = async (targetSongId) => {
+    if (!draggedSongId || draggedSongId === targetSongId) {
+      setDraggedSongId(null);
+      return;
+    }
+    const list = songFilter === 'ready' ? [...readySongs] : songFilter === 'not-ready' ? [...notReadySongs] : [...searchedSongs];
+    const fromIdx = list.findIndex(s => s.id === draggedSongId);
+    const toIdx = list.findIndex(s => s.id === targetSongId);
+    if (fromIdx === -1 || toIdx === -1) { setDraggedSongId(null); return; }
+
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(toIdx, 0, moved);
+
+    // Update sort_order for reordered songs
+    const updates = list.map((s, i) => ({ id: s.id, sort_order: i }));
+    setDraggedSongId(null);
+
+    try {
+      for (const u of updates) {
+        await supabase.from('custom_songs').upsert({
+          id: u.id,
+          country: list.find(s => s.id === u.id).country,
+          flag: list.find(s => s.id === u.id).flag,
+          artist: list.find(s => s.id === u.id).artist,
+          title: list.find(s => s.id === u.id).title,
+          genre: list.find(s => s.id === u.id).genre,
+          lyrics: list.find(s => s.id === u.id).lyrics || '',
+          sort_order: u.sort_order,
+        }, { onConflict: 'id' });
+      }
+      showMessage('Order saved!');
+      loadData();
+    } catch (err) {
+      showMessage('Failed to save order', 'error');
+    }
+  };
+
+  // Publish toggle
+  const handleTogglePublish = async (song) => {
+    const newVal = song.published === false ? true : false; // default is published (true/null)
+    try {
+      const { error } = await supabase.from('custom_songs').upsert({
+        id: song.id,
+        country: song.country,
+        flag: song.flag,
+        artist: song.artist,
+        title: song.title,
+        genre: song.genre,
+        lyrics: song.lyrics || '',
+        audio_url: song.audio_url || null,
+        published: newVal,
+      }, { onConflict: 'id' });
+      if (error) throw error;
+      showMessage(newVal ? 'Song published — visible to voters' : 'Song hidden from voters');
+      loadData();
+    } catch (err) {
+      showMessage(err.message || 'Failed to update', 'error');
+    }
+  };
 
   // Song form state
   const [showSongForm, setShowSongForm] = useState(false);
@@ -76,10 +205,12 @@ const AdminPanel = ({ onBack, userProfile }) => {
   // User management state
   const [allVotes, setAllVotes] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [allRatings, setAllRatings] = useState([]);
 
   // Video upload state
   const [videoUploading, setVideoUploading] = useState({});
   const videoInputRefs = useRef({});
+  const [videoDragging, setVideoDragging] = useState(null); // { countryId, startX, startY, startPosX, startPosY }
 
   useEffect(() => {
     loadData();
@@ -125,6 +256,12 @@ const AdminPanel = ({ onBack, userProfile }) => {
         const { data: usersData, error } = await supabase.from('profiles').select('*');
         if (!error) setAllUsers(usersData || []);
       } catch { /* profiles table may not exist yet */ }
+
+      // Load all ratings
+      try {
+        const { data: ratingsData, error } = await supabase.from('ratings').select('*');
+        if (!error) setAllRatings(ratingsData || []);
+      } catch { /* ratings table may not exist yet */ }
     } catch (err) {
       console.error('Error loading admin data:', err);
     }
@@ -427,6 +564,69 @@ const AdminPanel = ({ onBack, userProfile }) => {
     }
   };
 
+  const handleVideoPositionSave = async (countryId, posX, posY) => {
+    const clamped = { x: Math.max(0, Math.min(100, posX)), y: Math.max(0, Math.min(100, posY)) };
+    setCountryVideos(prev => ({
+      ...prev,
+      [countryId]: { ...prev[countryId], position_x: clamped.x, position_y: clamped.y }
+    }));
+    try {
+      await supabase.from('country_videos')
+        .update({ position_x: clamped.x, position_y: clamped.y })
+        .eq('country_id', countryId);
+    } catch { /* silent */ }
+  };
+
+  const onVideoDragStart = (e, countryId, video) => {
+    e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    setVideoDragging({
+      countryId,
+      startX: clientX,
+      startY: clientY,
+      startPosX: video.position_x ?? 50,
+      startPosY: video.position_y ?? 50,
+    });
+  };
+
+  useEffect(() => {
+    if (!videoDragging) return;
+    const onMove = (e) => {
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const dx = clientX - videoDragging.startX;
+      const dy = clientY - videoDragging.startY;
+      // Moving mouse right => decrease posX (shift video left to reveal right side)
+      const newX = Math.max(0, Math.min(100, videoDragging.startPosX - dx * 0.5));
+      const newY = Math.max(0, Math.min(100, videoDragging.startPosY - dy * 0.5));
+      setCountryVideos(prev => ({
+        ...prev,
+        [videoDragging.countryId]: { ...prev[videoDragging.countryId], position_x: newX, position_y: newY }
+      }));
+    };
+    const onUp = (e) => {
+      const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+      const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+      const dx = clientX - videoDragging.startX;
+      const dy = clientY - videoDragging.startY;
+      const finalX = Math.max(0, Math.min(100, videoDragging.startPosX - dx * 0.5));
+      const finalY = Math.max(0, Math.min(100, videoDragging.startPosY - dy * 0.5));
+      handleVideoPositionSave(videoDragging.countryId, finalX, finalY);
+      setVideoDragging(null);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+  }, [videoDragging]);
+
   // Country list for video uploads — derived from all songs so new countries appear automatically
   const videoCountries = useMemo(() => {
     const seen = new Set();
@@ -521,6 +721,58 @@ const AdminPanel = ({ onBack, userProfile }) => {
             <button onClick={handleOpenNewSong} className="admin-add-btn">
               <Plus size={18} />
               <span>Add Song</span>
+            </button>
+          </div>
+
+          {/* Progress bar */}
+          <div className="admin-progress-bar-wrap">
+            <div className="admin-progress-label">
+              <span>{readySongs.length} of {allSongs.length} ready</span>
+              <span>{allSongs.length > 0 ? Math.round((readySongs.length / allSongs.length) * 100) : 0}%</span>
+            </div>
+            <div className="admin-progress-track">
+              <div
+                className="admin-progress-fill"
+                style={{ width: `${allSongs.length > 0 ? (readySongs.length / allSongs.length) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="admin-song-search">
+            <Search size={16} />
+            <input
+              type="text"
+              value={songSearch}
+              onChange={e => setSongSearch(e.target.value)}
+              placeholder="Search by country, title, or artist..."
+            />
+            {songSearch && (
+              <button className="admin-song-search-clear" onClick={() => setSongSearch('')}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Filter tabs: All / Ready / Not Ready */}
+          <div className="admin-song-filters">
+            <button
+              className={`admin-song-filter-btn ${songFilter === 'all' ? 'admin-song-filter-active' : ''}`}
+              onClick={() => setSongFilter('all')}
+            >
+              All <span className="admin-song-filter-count">{searchedSongs.length}</span>
+            </button>
+            <button
+              className={`admin-song-filter-btn admin-song-filter-ready ${songFilter === 'ready' ? 'admin-song-filter-active' : ''}`}
+              onClick={() => setSongFilter('ready')}
+            >
+              <CheckCircle size={14} /> Ready <span className="admin-song-filter-count">{readySongs.length}</span>
+            </button>
+            <button
+              className={`admin-song-filter-btn admin-song-filter-notready ${songFilter === 'not-ready' ? 'admin-song-filter-active' : ''}`}
+              onClick={() => setSongFilter('not-ready')}
+            >
+              <AlertCircle size={14} /> Not Ready <span className="admin-song-filter-count">{notReadySongs.length}</span>
             </button>
           </div>
 
@@ -688,12 +940,38 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
           {/* Songs List */}
           <div className="admin-songs-list">
-            {allSongs.map((song) => (
-              <div key={song.id} className="admin-song-row">
-                <span className="admin-song-flag">{song.flag}</span>
+            {songFilter === 'all' && notReadySongs.length > 0 && readySongs.length > 0 && (
+              <div className="admin-song-category-header admin-song-category-notready">
+                <AlertCircle size={16} />
+                <span>Not Ready</span>
+                <span className="admin-song-category-count">{notReadySongs.length}</span>
+              </div>
+            )}
+            {(songFilter === 'all' ? notReadySongs : songFilter === 'not-ready' ? filteredSongs : []).map((song) => {
+              const missing = getMissing(song);
+              const isHidden = song.published === false;
+              return (
+              <div
+                key={song.id}
+                className={`admin-song-row admin-song-row-notready ${draggedSongId === song.id ? 'admin-song-row-dragging' : ''}`}
+                draggable
+                onDragStart={() => handleDragStart(song.id)}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => handleDrop(song.id)}
+                style={isHidden ? { opacity: 0.5 } : undefined}
+              >
+                <span className="admin-song-drag" title="Drag to reorder"><GripVertical size={16} /></span>
+                {song.cover_url ? (
+                  <img src={song.cover_url} alt="" className="admin-song-cover" />
+                ) : (
+                  <span className="admin-song-flag">{song.flag}</span>
+                )}
                 <div className="admin-song-info">
-                  <p className="admin-song-title">{song.title}</p>
-                  <p className="admin-song-meta">{song.artist} — {song.country}</p>
+                  <p className="admin-song-title">{song.title || <span className="admin-song-missing-title">Untitled</span>}</p>
+                  <p className="admin-song-meta">{song.artist || 'No artist'} — {song.country}</p>
+                  <p className="admin-song-missing">
+                    Missing: {missing.join(', ')}
+                  </p>
                 </div>
                 <div className="admin-song-badges">
                   {song.audio_url ? (
@@ -703,28 +981,136 @@ const AdminPanel = ({ onBack, userProfile }) => {
                   ) : (
                     <span className="admin-badge admin-badge-noaudio">No audio</span>
                   )}
+                  {!song.lyrics && (
+                    <span className="admin-badge admin-badge-noaudio">No lyrics</span>
+                  )}
                   {song.lyrics_timing && song.lyrics_timing.length > 0 && (
                     <span className="admin-badge admin-badge-audio">
                       <Clock size={12} /> Timed
                     </span>
                   )}
-                  <span className="admin-badge">{song.genre}</span>
+                  {isHidden && (
+                    <span className="admin-badge admin-badge-noaudio">Hidden</span>
+                  )}
+                  <span className="admin-badge">{song.genre || 'No genre'}</span>
                 </div>
-                <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song / upload audio">
-                  <Pencil size={16} />
-                </button>
-                {song.audio_url && song.lyrics && (
-                  <button onClick={() => setTimingEditorSong(song)} className="admin-edit-btn" title="Set lyrics timing">
-                    <Clock size={16} />
+                <div className="admin-song-actions">
+                  {song.audio_url && (
+                    <button onClick={() => handlePlayPreview(song)} className="admin-play-btn" title={playingSongId === song.id ? 'Pause' : 'Play preview'}>
+                      {playingSongId === song.id ? <Pause size={14} /> : <Play size={14} />}
+                    </button>
+                  )}
+                  <button onClick={() => setPreviewSong(song)} className="admin-edit-btn" title="Preview as voter">
+                    <Eye size={16} />
                   </button>
-                )}
-                {!song._isBuiltIn && (
-                  <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
-                    <Trash2 size={16} />
+                  <button onClick={() => handleTogglePublish(song)} className="admin-edit-btn" title={isHidden ? 'Publish song' : 'Hide from voters'}>
+                    {isHidden ? <EyeOff size={16} /> : <CheckCircle size={16} />}
                   </button>
-                )}
+                  <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song">
+                    <Pencil size={16} />
+                  </button>
+                  {song.audio_url && song.lyrics && (
+                    <button onClick={() => setTimingEditorSong(song)} className="admin-edit-btn" title="Set lyrics timing">
+                      <Clock size={16} />
+                    </button>
+                  )}
+                  {!song._isBuiltIn && (
+                    <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
-            ))}
+              );
+            })}
+
+            {songFilter === 'all' && readySongs.length > 0 && (
+              <div className="admin-song-category-header admin-song-category-ready">
+                <CheckCircle size={16} />
+                <span>Ready</span>
+                <span className="admin-song-category-count">{readySongs.length}</span>
+              </div>
+            )}
+            {(songFilter === 'all' ? readySongs : songFilter === 'ready' ? filteredSongs : []).map((song) => {
+              const isHidden = song.published === false;
+              return (
+              <div
+                key={song.id}
+                className={`admin-song-row admin-song-row-ready ${draggedSongId === song.id ? 'admin-song-row-dragging' : ''}`}
+                draggable
+                onDragStart={() => handleDragStart(song.id)}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => handleDrop(song.id)}
+                style={isHidden ? { opacity: 0.5 } : undefined}
+              >
+                <span className="admin-song-drag" title="Drag to reorder"><GripVertical size={16} /></span>
+                {song.cover_url ? (
+                  <img src={song.cover_url} alt="" className="admin-song-cover" />
+                ) : (
+                  <span className="admin-song-flag">{song.flag}</span>
+                )}
+                <div className="admin-song-info">
+                  <p className="admin-song-title">{song.title}</p>
+                  <p className="admin-song-meta">{song.artist} — {song.country}</p>
+                </div>
+                <div className="admin-song-badges">
+                  <span className="admin-badge admin-badge-audio">
+                    <Music size={12} /> Audio
+                  </span>
+                  {song.lyrics_timing && song.lyrics_timing.length > 0 && (
+                    <span className="admin-badge admin-badge-audio">
+                      <Clock size={12} /> Timed
+                    </span>
+                  )}
+                  {song.lyrics && !song.lyrics_timing?.length && (
+                    <span className="admin-badge admin-badge-noaudio">No timing</span>
+                  )}
+                  {isHidden && (
+                    <span className="admin-badge admin-badge-noaudio">Hidden</span>
+                  )}
+                  <span className="admin-badge">{song.genre || 'No genre'}</span>
+                </div>
+                <div className="admin-song-actions">
+                  <button onClick={() => handlePlayPreview(song)} className="admin-play-btn" title={playingSongId === song.id ? 'Pause' : 'Play preview'}>
+                    {playingSongId === song.id ? <Pause size={14} /> : <Play size={14} />}
+                  </button>
+                  <button onClick={() => setPreviewSong(song)} className="admin-edit-btn" title="Preview as voter">
+                    <Eye size={16} />
+                  </button>
+                  <button onClick={() => handleTogglePublish(song)} className="admin-edit-btn" title={isHidden ? 'Publish song' : 'Hide from voters'}>
+                    {isHidden ? <EyeOff size={16} /> : <CheckCircle size={16} />}
+                  </button>
+                  <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song">
+                    <Pencil size={16} />
+                  </button>
+                  {song.audio_url && song.lyrics && (
+                    <button onClick={() => setTimingEditorSong(song)} className="admin-edit-btn" title="Set lyrics timing">
+                      <Clock size={16} />
+                    </button>
+                  )}
+                  {!song._isBuiltIn && (
+                    <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              );
+            })}
+
+            {filteredSongs.length === 0 && (
+              <div className="ev-empty" style={{ padding: '40px 20px' }}>
+                <Music size={36} className="ev-empty-icon" />
+                <p className="ev-empty-title">
+                  {songSearch ? 'No matches' : `No ${songFilter === 'ready' ? 'ready' : songFilter === 'not-ready' ? 'incomplete' : ''} songs`}
+                </p>
+                <p className="ev-empty-sub">
+                  {songSearch ? `No songs matching "${songSearch}"` :
+                   songFilter === 'ready' ? 'Songs need artist, title, lyrics, and audio to be ready.' :
+                   songFilter === 'not-ready' ? 'All songs are complete!' : 'Add your first song to get started.'}
+                </p>
+              </div>
+            )}
           </div>
           </>
           )}
@@ -758,16 +1144,26 @@ const AdminPanel = ({ onBack, userProfile }) => {
                   </div>
 
                   {video ? (
-                    <div className="admin-video-preview">
+                    <div
+                      className={`admin-video-preview ${videoDragging?.countryId === country.id ? 'admin-video-repositioning' : ''}`}
+                      onMouseDown={e => onVideoDragStart(e, country.id, video)}
+                      onTouchStart={e => onVideoDragStart(e, country.id, video)}
+                      onMouseEnter={e => { if (!videoDragging) { const v = e.currentTarget.querySelector('video'); if (v) v.play().catch(() => {}); } }}
+                      onMouseLeave={e => { const v = e.currentTarget.querySelector('video'); if (v) { v.pause(); v.currentTime = 0; } }}
+                      style={{ cursor: videoDragging?.countryId === country.id ? 'grabbing' : 'grab' }}
+                    >
                       <video
                         src={video.video_url}
                         muted
                         loop
                         playsInline
-                        onMouseEnter={e => e.target.play()}
-                        onMouseLeave={e => { e.target.pause(); e.target.currentTime = 0; }}
                         className="admin-video-player"
+                        style={{ objectPosition: `${video.position_x ?? 50}% ${video.position_y ?? 50}%` }}
                       />
+                      <div className="admin-video-reposition-hint">
+                        <GripVertical size={12} />
+                        <span>Drag to reposition</span>
+                      </div>
                       <div className="admin-video-status admin-video-status-active">
                         <CheckCircle size={14} />
                         <span>Video active</span>
@@ -808,8 +1204,8 @@ const AdminPanel = ({ onBack, userProfile }) => {
       {activeSection === 'users' && (
         <div className="admin-section">
           <div className="admin-section-header">
-            <h2>User Votes</h2>
-            <p className="admin-section-desc">See who has voted and their vote breakdown.</p>
+            <h2>Registered Users</h2>
+            <p className="admin-section-desc">All registered users and their vote breakdown.</p>
           </div>
 
           {(() => {
@@ -820,11 +1216,12 @@ const AdminPanel = ({ onBack, userProfile }) => {
               userVoteMap[v.user_id].push(v);
             });
 
-            const userEntries = Object.entries(userVoteMap)
-              .map(([userId, votes]) => {
-                const profile = allUsers.find(u => u.id === userId);
+            // Build entries from ALL profiles, not just voters
+            const userEntries = allUsers
+              .map(profile => {
+                const votes = userVoteMap[profile.id] || [];
                 const totalPts = votes.reduce((s, v) => s + v.score, 0);
-                return { userId, votes, profile, totalPts, voteCount: votes.length };
+                return { userId: profile.id, votes, profile, totalPts, voteCount: votes.length };
               })
               .sort((a, b) => b.totalPts - a.totalPts);
 
@@ -832,8 +1229,8 @@ const AdminPanel = ({ onBack, userProfile }) => {
               return (
                 <div className="ev-empty">
                   <Users size={48} className="ev-empty-icon" />
-                  <p className="ev-empty-title">No votes yet</p>
-                  <p className="ev-empty-sub">Votes will appear here once users start voting.</p>
+                  <p className="ev-empty-title">No users yet</p>
+                  <p className="ev-empty-sub">Users will appear here once they register.</p>
                 </div>
               );
             }
@@ -843,28 +1240,36 @@ const AdminPanel = ({ onBack, userProfile }) => {
                 {userEntries.map(({ userId, votes, profile, totalPts, voteCount }) => (
                   <div key={userId} className="admin-user-row">
                     <div className="admin-user-avatar">
-                      {(profile?.display_name || profile?.email || userId).charAt(0).toUpperCase()}
+                      {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        (profile?.name || '?').charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div className="admin-user-info">
                       <p className="admin-user-name">
-                        {profile?.display_name || profile?.email || `User ${userId.slice(0, 8)}...`}
+                        {profile?.name || `User ${userId.slice(0, 8)}...`}
                       </p>
-                      <div className="admin-user-votes">
-                        {votes
-                          .sort((a, b) => b.score - a.score)
-                          .slice(0, 8)
-                          .map(v => {
-                            const song = allSongs.find(s => s.id === v.song_id);
-                            return (
-                              <span key={v.song_id} className="admin-user-vote-chip">
-                                {song?.flag || ''} {v.score}pts
-                              </span>
-                            );
-                          })}
-                        {votes.length > 8 && (
-                          <span className="admin-user-vote-chip">+{votes.length - 8} more</span>
-                        )}
-                      </div>
+                      {votes.length > 0 ? (
+                        <div className="admin-user-votes">
+                          {votes
+                            .sort((a, b) => b.score - a.score)
+                            .slice(0, 8)
+                            .map(v => {
+                              const song = allSongs.find(s => s.id === v.song_id);
+                              return (
+                                <span key={v.song_id} className="admin-user-vote-chip">
+                                  {song?.flag || ''} {v.score}pts
+                                </span>
+                              );
+                            })}
+                          {votes.length > 8 && (
+                            <span className="admin-user-vote-chip">+{votes.length - 8} more</span>
+                          )}
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '0.75rem', color: 'rgba(196,181,253,0.4)', margin: 0 }}>No votes yet</p>
+                      )}
                     </div>
                     <div className="admin-user-stats">
                       <div className="admin-user-stat">
@@ -1189,6 +1594,164 @@ const AdminPanel = ({ onBack, userProfile }) => {
             </div>
           </div>
 
+          {/* Analytics Dashboard */}
+          {allVotes.length > 0 && (() => {
+            // Vote distribution analysis
+            const scoreDistribution = {};
+            allVotes.forEach(v => {
+              scoreDistribution[v.score] = (scoreDistribution[v.score] || 0) + 1;
+            });
+            const maxDistCount = Math.max(...Object.values(scoreDistribution));
+
+            // Top songs by total points
+            const songPoints = {};
+            allVotes.forEach(v => {
+              songPoints[v.song_id] = (songPoints[v.song_id] || 0) + v.score;
+            });
+            const topSongs = Object.entries(songPoints)
+              .sort(([, a], [, b]) => b - a)
+              .slice(0, 5)
+              .map(([id, pts]) => ({ song: allSongs.find(s => s.id === id), pts }));
+
+            // Most controversial (highest variance)
+            const songVoteArrays = {};
+            allVotes.forEach(v => {
+              if (!songVoteArrays[v.song_id]) songVoteArrays[v.song_id] = [];
+              songVoteArrays[v.song_id].push(v.score);
+            });
+            const controversialSongs = Object.entries(songVoteArrays)
+              .filter(([, votes]) => votes.length >= 2)
+              .map(([id, votes]) => {
+                const avg = votes.reduce((s, v) => s + v, 0) / votes.length;
+                const variance = votes.reduce((s, v) => s + (v - avg) ** 2, 0) / votes.length;
+                return { song: allSongs.find(s => s.id === id), variance, avg, votes: votes.length };
+              })
+              .sort((a, b) => b.variance - a.variance)
+              .slice(0, 3);
+
+            // Average ratings by category (if ratings exist)
+            const avgRatings = allRatings.length > 0 ? {
+              lyrics: allRatings.reduce((s, r) => s + (r.lyrics_rating || 0), 0) / allRatings.length,
+              melody: allRatings.reduce((s, r) => s + (r.melody_rating || 0), 0) / allRatings.length,
+              memorable: allRatings.reduce((s, r) => s + (r.memorable_rating || 0), 0) / allRatings.length,
+            } : null;
+
+            // 12-point givers
+            const douzePointGivers = allVotes.filter(v => v.score === 12).length;
+
+            return (
+              <>
+                <p className="settings-section-title" style={{ marginTop: 0 }}>
+                  <BarChart3 size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+                  Voting Analytics
+                </p>
+
+                {/* Score Distribution */}
+                <div className="analytics-card">
+                  <p className="analytics-card-title">Score Distribution</p>
+                  <div className="analytics-bar-chart">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12].map(score => {
+                      const count = scoreDistribution[score] || 0;
+                      const pct = maxDistCount > 0 ? (count / maxDistCount) * 100 : 0;
+                      return (
+                        <div key={score} className="analytics-bar-item">
+                          <div className="analytics-bar-container">
+                            <div
+                              className="analytics-bar-fill"
+                              style={{
+                                height: `${pct}%`,
+                                background: score >= 10 ? 'linear-gradient(to top, #fbbf24, #f59e0b)' :
+                                  score >= 7 ? 'linear-gradient(to top, #ec4899, #f472b6)' :
+                                  'linear-gradient(to top, var(--color-primary), #a78bfa)',
+                              }}
+                            />
+                          </div>
+                          <span className="analytics-bar-label">{score}</span>
+                          <span className="analytics-bar-count">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="analytics-insight">
+                    <Zap size={12} /> {douzePointGivers} douze points given
+                    {douzePointGivers > 0 && ` (${((douzePointGivers / allVotes.length) * 100).toFixed(0)}% of all votes)`}
+                  </p>
+                </div>
+
+                {/* Top 5 Songs */}
+                <div className="analytics-card">
+                  <p className="analytics-card-title">Top 5 Songs</p>
+                  <div className="analytics-ranking">
+                    {topSongs.map(({ song, pts }, i) => (
+                      <div key={song?.id || i} className="analytics-rank-row">
+                        <span className="analytics-rank-num">{i + 1}</span>
+                        <span className="analytics-rank-flag">{song?.flag}</span>
+                        <div className="analytics-rank-info">
+                          <span className="analytics-rank-title">{song?.title || 'Unknown'}</span>
+                          <div className="analytics-rank-bar-bg">
+                            <div
+                              className="analytics-rank-bar-fill"
+                              style={{ width: `${topSongs[0]?.pts ? (pts / topSongs[0].pts) * 100 : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                        <span className="analytics-rank-pts">{pts} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Most Controversial */}
+                {controversialSongs.length > 0 && (
+                  <div className="analytics-card">
+                    <p className="analytics-card-title">Most Controversial</p>
+                    <p className="analytics-card-desc">Songs with the widest spread of votes</p>
+                    <div className="analytics-ranking">
+                      {controversialSongs.map(({ song, variance, avg, votes }, i) => (
+                        <div key={song?.id || i} className="analytics-rank-row">
+                          <span className="analytics-rank-flag">{song?.flag}</span>
+                          <div className="analytics-rank-info">
+                            <span className="analytics-rank-title">{song?.title || 'Unknown'}</span>
+                            <span className="analytics-rank-meta">
+                              Avg: {avg.toFixed(1)} &middot; {votes} votes &middot; Spread: {Math.sqrt(variance).toFixed(1)}
+                            </span>
+                          </div>
+                          <TrendingUp size={16} style={{ color: '#f97316', flexShrink: 0 }} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Average Ratings */}
+                {avgRatings && (
+                  <div className="analytics-card">
+                    <p className="analytics-card-title">Average Ratings Across All Songs</p>
+                    <div className="analytics-avg-ratings">
+                      {[
+                        { label: 'Lyrics', emoji: '✏️', value: avgRatings.lyrics },
+                        { label: 'Melody', emoji: '🎵', value: avgRatings.melody },
+                        { label: 'Memorable', emoji: '💫', value: avgRatings.memorable },
+                      ].map(r => (
+                        <div key={r.label} className="analytics-avg-item">
+                          <span className="analytics-avg-emoji">{r.emoji}</span>
+                          <div className="analytics-avg-info">
+                            <span className="analytics-avg-label">{r.label}</span>
+                            <div className="analytics-avg-bar-bg">
+                              <div className="analytics-avg-bar-fill" style={{ width: `${(r.value / 10) * 100}%` }} />
+                            </div>
+                          </div>
+                          <span className="analytics-avg-value">{r.value.toFixed(1)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="analytics-insight">Based on {allRatings.length} rating{allRatings.length !== 1 ? 's' : ''}</p>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
           {/* Export Votes */}
           <div className="tools-action-card">
             <div className="tools-action-info">
@@ -1335,6 +1898,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
                     if (confirmAction === 'reset-votes') {
                       const { error } = await supabase.from('votes').delete().not('user_id', 'is', null);
                       if (error) throw error;
+                      setAllVotes([]);
                       showMessage('All votes have been reset');
                     } else if (confirmAction === 'reset-ratings') {
                       const { error } = await supabase.from('ratings').delete().not('user_id', 'is', null);
@@ -1343,6 +1907,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
                     } else if (confirmAction.type === 'delete-user-votes') {
                       const { error } = await supabase.from('votes').delete().eq('user_id', confirmAction.userId);
                       if (error) throw error;
+                      setAllVotes(prev => prev.filter(v => v.user_id !== confirmAction.userId));
                       showMessage(`Votes for ${confirmAction.userName} deleted`);
                     }
                     setConfirmAction(null);
@@ -1358,6 +1923,18 @@ const AdminPanel = ({ onBack, userProfile }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Song Preview — renders the actual voter components */}
+      {previewSong && (
+        <SongDetail
+          song={previewSong}
+          userScore={null}
+          onVote={() => { showMessage('Preview only — votes are not saved', 'error'); }}
+          onClose={() => setPreviewSong(null)}
+          userProfile={userProfile}
+          videoUrl={countryVideos[previewSong.id]?.video_url}
+        />
       )}
 
       {/* Lyrics Timing Editor Modal */}

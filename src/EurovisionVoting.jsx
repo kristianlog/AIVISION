@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Music, BarChart3, Heart, RotateCcw, Search, X as XIcon, Award, Trophy, Flame } from 'lucide-react';
+import { Music, BarChart3, Heart, RotateCcw, Search, X as XIcon, Award, Trophy, Flame, User, UserPlus, UserCheck, UserX } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { useTheme } from './ThemeContext';
 import SONGS from './songs';
 import SongCard from './SongCard';
 import SongDetail from './SongDetail';
 import Leaderboard from './Leaderboard';
+import Confetti from './Confetti';
 
 const TABS = [
   { id: 'songs', label: 'Songs', icon: Music },
   { id: 'votes', label: 'My Votes', icon: Heart },
   { id: 'leaderboard', label: 'Leaderboard', icon: BarChart3 },
+  { id: 'profile', label: 'Profile', icon: User },
 ];
 
 const STORAGE_KEY = 'aivision_votes';
@@ -29,6 +31,13 @@ const EurovisionVoting = ({ userProfile }) => {
   const [showUndo, setShowUndo] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterGenre, setFilterGenre] = useState('all');
+
+  // Friends system
+  const [friends, setFriends] = useState([]);
+  const [friendRequests, setFriendRequests] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [friendSearch, setFriendSearch] = useState('');
+  const [profileConfetti, setProfileConfetti] = useState(false);
 
   const toFakeVotes = useCallback((votesMap) => {
     return Object.entries(votesMap).map(([song_id, score]) => ({
@@ -95,7 +104,7 @@ const EurovisionVoting = ({ userProfile }) => {
         const { data } = await supabase.from('country_videos').select('*');
         if (data) {
           const videoMap = {};
-          data.forEach(v => { videoMap[v.country_id] = v.video_url; });
+          data.forEach(v => { videoMap[v.country_id] = { url: v.video_url, posX: v.position_x ?? 50, posY: v.position_y ?? 50 }; });
           setCountryVideos(videoMap);
         }
       } catch {
@@ -114,7 +123,9 @@ const EurovisionVoting = ({ userProfile }) => {
             : { ...s, sort_order: s.sort_order ?? i });
           const customOnly = data.filter(s => !SONGS.some(b => b.id === s.id))
             .map((s, i) => ({ ...s, sort_order: s.sort_order ?? 100 + i }));
-          const all = [...merged, ...customOnly].sort((a, b) => a.country.localeCompare(b.country));
+          const all = [...merged, ...customOnly]
+            .filter(s => s.published !== false) // hide unpublished songs
+            .sort((a, b) => a.country.localeCompare(b.country));
           setAllSongs(all);
         }
       } catch {
@@ -131,10 +142,36 @@ const EurovisionVoting = ({ userProfile }) => {
       }
     };
 
+    const loadFriends = async () => {
+      if (!userProfile?.id) return;
+      try {
+        // Load accepted friends (both directions)
+        const { data } = await supabase
+          .from('friends')
+          .select('*, requester:profiles!friends_requester_id_fkey(id, name, email, avatar_url), addressee:profiles!friends_addressee_id_fkey(id, name, email, avatar_url)')
+          .or(`requester_id.eq.${userProfile.id},addressee_id.eq.${userProfile.id}`);
+        if (data) {
+          const accepted = data.filter(f => f.status === 'accepted');
+          const pending = data.filter(f => f.status === 'pending' && f.addressee_id === userProfile.id);
+          setFriends(accepted);
+          setFriendRequests(pending);
+        }
+      } catch { /* friends table may not exist */ }
+    };
+
+    const loadAllUsers = async () => {
+      try {
+        const { data } = await supabase.from('profiles').select('id, name, email, avatar_url');
+        if (data) setAllUsers(data);
+      } catch { /* */ }
+    };
+
     loadVotes();
     loadCountryVideos();
     loadCustomSongs();
     loadAllRatings();
+    loadFriends();
+    loadAllUsers();
   }, [userProfile?.id, loadLocalVotes]);
 
   const handleVote = async (songId, score) => {
@@ -223,6 +260,66 @@ const EurovisionVoting = ({ userProfile }) => {
     } catch {
       saveLocalVotes(newVotes);
     }
+  };
+
+  // Friends functions
+  const sendFriendRequest = async (addresseeId) => {
+    if (!userProfile?.id) return;
+    try {
+      await supabase.from('friends').insert({
+        requester_id: userProfile.id,
+        addressee_id: addresseeId,
+        status: 'pending',
+      });
+      // Reload friends
+      const { data } = await supabase.from('friends')
+        .select('*, requester:profiles!friends_requester_id_fkey(id, name, email, avatar_url), addressee:profiles!friends_addressee_id_fkey(id, name, email, avatar_url)')
+        .or(`requester_id.eq.${userProfile.id},addressee_id.eq.${userProfile.id}`);
+      if (data) {
+        setFriends(data.filter(f => f.status === 'accepted'));
+        setFriendRequests(data.filter(f => f.status === 'pending' && f.addressee_id === userProfile.id));
+      }
+    } catch { /* table may not exist */ }
+  };
+
+  const respondFriendRequest = async (requestId, accept) => {
+    try {
+      if (accept) {
+        await supabase.from('friends').update({ status: 'accepted' }).eq('id', requestId);
+        setProfileConfetti(true);
+        setTimeout(() => setProfileConfetti(false), 3500);
+      } else {
+        await supabase.from('friends').delete().eq('id', requestId);
+      }
+      // Reload
+      const { data } = await supabase.from('friends')
+        .select('*, requester:profiles!friends_requester_id_fkey(id, name, email, avatar_url), addressee:profiles!friends_addressee_id_fkey(id, name, email, avatar_url)')
+        .or(`requester_id.eq.${userProfile.id},addressee_id.eq.${userProfile.id}`);
+      if (data) {
+        setFriends(data.filter(f => f.status === 'accepted'));
+        setFriendRequests(data.filter(f => f.status === 'pending' && f.addressee_id === userProfile.id));
+      }
+    } catch { /* */ }
+  };
+
+  const removeFriend = async (friendshipId) => {
+    try {
+      await supabase.from('friends').delete().eq('id', friendshipId);
+      setFriends(prev => prev.filter(f => f.id !== friendshipId));
+    } catch { /* */ }
+  };
+
+  const getFriendProfile = (friendship) => {
+    return friendship.requester_id === userProfile?.id ? friendship.addressee : friendship.requester;
+  };
+
+  const isFriend = (userId) => {
+    return friends.some(f => f.requester_id === userId || f.addressee_id === userId);
+  };
+
+  const hasPendingRequest = (userId) => {
+    return friendRequests.some(f => f.requester_id === userId) ||
+      friends.some(f => f.status === 'pending' && (f.requester_id === userId || f.addressee_id === userId));
   };
 
   // Filter and search songs
@@ -420,7 +517,8 @@ const EurovisionVoting = ({ userProfile }) => {
                   song={song}
                   userScore={userVotes[song.id]}
                   onClick={() => setSelectedSong(song)}
-                  videoUrl={countryVideos[song.id]}
+                  videoUrl={countryVideos[song.id]?.url}
+                  videoPosition={countryVideos[song.id]}
                 />
               ))}
             </div>
@@ -478,6 +576,154 @@ const EurovisionVoting = ({ userProfile }) => {
         />
       )}
 
+      {/* Profile & Friends */}
+      {activeTab === 'profile' && (
+        <div className="ev-profile">
+          <Confetti active={profileConfetti} />
+
+          {/* My Profile Card */}
+          <div className="profile-card">
+            <div className="profile-card-avatar">
+              {userProfile?.avatar_url ? (
+                <img src={userProfile.avatar_url} alt="" />
+              ) : (
+                <User size={32} />
+              )}
+            </div>
+            <div className="profile-card-info">
+              <h3 className="profile-card-name">{userProfile?.name}</h3>
+              <p className="profile-card-email">{userProfile?.email}</p>
+            </div>
+            <div className="profile-card-stats">
+              <div className="profile-stat">
+                <span className="profile-stat-value">{votedCount}</span>
+                <span className="profile-stat-label">Votes</span>
+              </div>
+              <div className="profile-stat">
+                <span className="profile-stat-value">{totalPoints}</span>
+                <span className="profile-stat-label">Points</span>
+              </div>
+              <div className="profile-stat">
+                <span className="profile-stat-value">{friends.length}</span>
+                <span className="profile-stat-label">Friends</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Friend Requests */}
+          {friendRequests.length > 0 && (
+            <div className="profile-section">
+              <h4 className="profile-section-title">Friend Requests ({friendRequests.length})</h4>
+              <div className="profile-friends-list">
+                {friendRequests.map(req => (
+                  <div key={req.id} className="profile-friend-row">
+                    <div className="profile-friend-avatar">
+                      {req.requester?.avatar_url ? (
+                        <img src={req.requester.avatar_url} alt="" />
+                      ) : (
+                        <span>{(req.requester?.name || '?')[0].toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="profile-friend-info">
+                      <span className="profile-friend-name">{req.requester?.name}</span>
+                    </div>
+                    <button onClick={() => respondFriendRequest(req.id, true)} className="profile-friend-accept">
+                      <UserCheck size={14} /> Accept
+                    </button>
+                    <button onClick={() => respondFriendRequest(req.id, false)} className="profile-friend-decline">
+                      <UserX size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Friends List */}
+          <div className="profile-section">
+            <h4 className="profile-section-title">Friends ({friends.length})</h4>
+            {friends.length === 0 ? (
+              <p className="profile-empty-text">No friends yet. Search for users to add!</p>
+            ) : (
+              <div className="profile-friends-list">
+                {friends.map(f => {
+                  const friend = getFriendProfile(f);
+                  const friendVotes = allVotes.filter(v => v.user_id === friend?.id);
+                  const friendPts = friendVotes.reduce((s, v) => s + v.score, 0);
+                  return (
+                    <div key={f.id} className="profile-friend-row">
+                      <div className="profile-friend-avatar">
+                        {friend?.avatar_url ? (
+                          <img src={friend.avatar_url} alt="" />
+                        ) : (
+                          <span>{(friend?.name || '?')[0].toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div className="profile-friend-info">
+                        <span className="profile-friend-name">{friend?.name}</span>
+                        <span className="profile-friend-meta">{friendVotes.length} votes &middot; {friendPts} pts</span>
+                      </div>
+                      <button onClick={() => removeFriend(f.id)} className="profile-friend-remove" title="Remove friend">
+                        <UserX size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Find Friends */}
+          <div className="profile-section">
+            <h4 className="profile-section-title">Find Friends</h4>
+            <div className="ev-search-wrapper" style={{ marginBottom: 12 }}>
+              <Search size={18} className="ev-search-icon" />
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={friendSearch}
+                onChange={(e) => setFriendSearch(e.target.value)}
+                className="ev-search-input"
+              />
+            </div>
+            {friendSearch.trim() && (
+              <div className="profile-friends-list">
+                {allUsers
+                  .filter(u => u.id !== userProfile?.id && u.name?.toLowerCase().includes(friendSearch.toLowerCase()))
+                  .slice(0, 10)
+                  .map(u => {
+                    const alreadyFriend = isFriend(u.id);
+                    const pending = hasPendingRequest(u.id);
+                    return (
+                      <div key={u.id} className="profile-friend-row">
+                        <div className="profile-friend-avatar">
+                          {u.avatar_url ? (
+                            <img src={u.avatar_url} alt="" />
+                          ) : (
+                            <span>{(u.name || '?')[0].toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="profile-friend-info">
+                          <span className="profile-friend-name">{u.name}</span>
+                        </div>
+                        {alreadyFriend ? (
+                          <span className="profile-friend-status">Friends</span>
+                        ) : pending ? (
+                          <span className="profile-friend-status">Pending</span>
+                        ) : (
+                          <button onClick={() => sendFriendRequest(u.id)} className="profile-friend-add">
+                            <UserPlus size={14} /> Add
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Song Detail Modal */}
       {selectedSong && (
         <SongDetail
@@ -486,7 +732,8 @@ const EurovisionVoting = ({ userProfile }) => {
           onVote={handleVote}
           onClose={() => setSelectedSong(null)}
           userProfile={userProfile}
-          videoUrl={countryVideos[selectedSong.id]}
+          videoUrl={countryVideos[selectedSong.id]?.url}
+          videoPosition={countryVideos[selectedSong.id]}
         />
       )}
 
@@ -502,6 +749,29 @@ const EurovisionVoting = ({ userProfile }) => {
           </button>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <div className="mobile-bottom-nav">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`mobile-nav-btn ${activeTab === tab.id ? 'mobile-nav-active' : ''}`}
+            >
+              <Icon size={20} />
+              <span>{tab.label}</span>
+              {tab.id === 'votes' && votedCount > 0 && (
+                <span className="mobile-nav-badge">{votedCount}</span>
+              )}
+              {tab.id === 'profile' && friendRequests.length > 0 && (
+                <span className="mobile-nav-badge">{friendRequests.length}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };

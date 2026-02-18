@@ -109,6 +109,7 @@ function App() {
   };
 
   const userIsAdmin = isAdmin(userProfile?.email || session?.user?.email);
+  const isLight = mode === 'light';
 
   if (loading) {
     return (
@@ -127,22 +128,23 @@ function App() {
             animation: 'spin 1s linear infinite',
             margin: '0 auto 16px',
           }} />
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', marginBottom: 8 }}>Loading...</h2>
-          <p style={{ color: 'rgba(196,181,253,0.7)' }}>Preparing your experience</p>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: isLight ? '#1e293b' : 'white', marginBottom: 8 }}>Loading...</h2>
+          <p style={{ color: isLight ? '#64748b' : 'rgba(196,181,253,0.7)' }}>Preparing your experience</p>
         </div>
       </div>
     );
   }
 
   const UserHeader = () => (
-    <div style={{
-      background: 'rgba(255,255,255,0.06)',
+    <div className="user-header" style={{
+      background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.06)',
       backdropFilter: 'blur(16px)',
       WebkitBackdropFilter: 'blur(16px)',
       padding: '14px 20px',
       marginBottom: '24px',
       borderRadius: '14px',
-      border: '1px solid rgba(255,255,255,0.1)',
+      border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`,
+      boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -177,22 +179,22 @@ function App() {
           )}
         </div>
         <div>
-          <p style={{ color: 'white', fontWeight: 600, margin: 0, fontSize: '0.95rem' }}>
+          <p style={{ color: isLight ? '#1e293b' : 'white', fontWeight: 600, margin: 0, fontSize: '0.95rem' }}>
             {userProfile?.name}
             {userIsAdmin && (
               <span style={{
                 marginLeft: '8px',
                 fontSize: '0.7rem',
                 fontWeight: 700,
-                color: '#c084fc',
-                background: 'rgba(139,92,246,0.15)',
+                color: isLight ? 'var(--color-primary)' : '#c084fc',
+                background: isLight ? 'rgba(139,92,246,0.1)' : 'rgba(139,92,246,0.15)',
                 padding: '2px 8px',
                 borderRadius: '6px',
                 verticalAlign: 'middle',
               }}>ADMIN</span>
             )}
           </p>
-          <p style={{ color: 'rgba(196,181,253,0.6)', fontSize: '0.8rem', margin: 0 }}>Eurovision Voter</p>
+          <p style={{ color: isLight ? '#64748b' : 'rgba(196,181,253,0.6)', fontSize: '0.8rem', margin: 0 }}>Eurovision Voter</p>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -204,10 +206,10 @@ function App() {
             alignItems: 'center',
             gap: '6px',
             padding: '8px 14px',
-            background: mode === 'light' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
-            border: `1px solid ${mode === 'light' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)'}`,
+            background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)',
+            border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.12)'}`,
             borderRadius: '10px',
-            color: mode === 'light' ? '#475569' : 'rgba(196,181,253,0.7)',
+            color: isLight ? '#475569' : 'rgba(196,181,253,0.7)',
             cursor: 'pointer',
             fontSize: '0.85rem',
             fontWeight: 500,
@@ -227,10 +229,12 @@ function App() {
               alignItems: 'center',
               gap: '6px',
               padding: '8px 14px',
-              background: showAdmin ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.1)',
-              border: '1px solid rgba(139,92,246,0.3)',
+              background: showAdmin
+                ? (isLight ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.3)')
+                : (isLight ? 'rgba(139,92,246,0.08)' : 'rgba(139,92,246,0.1)'),
+              border: `1px solid ${isLight ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.3)'}`,
               borderRadius: '10px',
-              color: '#c084fc',
+              color: isLight ? 'var(--color-primary)' : '#c084fc',
               cursor: 'pointer',
               fontSize: '0.85rem',
               fontWeight: 500,
@@ -250,10 +254,10 @@ function App() {
             alignItems: 'center',
             gap: '6px',
             padding: '8px 14px',
-            background: 'rgba(239,68,68,0.15)',
-            border: '1px solid rgba(239,68,68,0.25)',
+            background: isLight ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.15)',
+            border: `1px solid ${isLight ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.25)'}`,
             borderRadius: '10px',
-            color: 'rgba(252,165,165,0.8)',
+            color: isLight ? '#dc2626' : 'rgba(252,165,165,0.8)',
             cursor: 'pointer',
             fontSize: '0.85rem',
             fontWeight: 500,

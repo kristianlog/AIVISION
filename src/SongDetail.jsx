@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Star, Check, Play, Pause, SkipBack, Send } from 'lucide-react';
+import { X, Star, Check, Play, Pause, SkipBack, Send, Mic2, Info, Trophy, MapPin, Calendar, Users, Trash2 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import useFlagColors from './useFlagColors';
+import KaraokeMode from './KaraokeMode';
+import Confetti from './Confetti';
+import COUNTRY_INFO from './countryInfo';
 
-const EMOJI_OPTIONS = ['\u2764\uFE0F', '\uD83D\uDD25', '\uD83D\uDC4F', '\uD83D\uDE0D', '\uD83C\uDFB5', '\uD83D\uDC83', '\uD83C\uDF1F', '\uD83D\uDE2D'];
+const EMOJI_OPTIONS = ['\u2764\uFE0F', '\uD83D\uDD25', '\uD83D\uDC4F', '\uD83C\uDFB5'];
 
 const POINTS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
 
@@ -14,7 +17,7 @@ const formatTime = (s) => {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 };
 
-const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl }) => {
+const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, videoPosition }) => {
   const [selectedIndex, setSelectedIndex] = useState(
     userScore ? POINTS.indexOf(userScore) : 4
   );
@@ -40,6 +43,16 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [commentSaving, setCommentSaving] = useState(false);
+
+  // Karaoke mode
+  const [showKaraoke, setShowKaraoke] = useState(false);
+
+  // Country info
+  const [showCountryInfo, setShowCountryInfo] = useState(false);
+  const countryInfo = COUNTRY_INFO[song.id] || null;
+
+  // Confetti
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const hasAudio = !!song.audio_url;
 
@@ -118,12 +131,29 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     };
     const loadComments = async () => {
       try {
-        const { data } = await supabase
+        // Load comments
+        const { data, error } = await supabase
           .from('song_comments')
-          .select('*, profiles(name, avatar_url)')
+          .select('*')
           .eq('song_id', song.id)
           .order('created_at', { ascending: true });
-        if (data) setComments(data);
+        if (error || !data) return;
+
+        // Fetch profiles for all comment authors
+        const userIds = [...new Set(data.map(c => c.user_id))];
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, name, avatar_url')
+            .in('id', userIds);
+          const profileMap = {};
+          (profiles || []).forEach(p => { profileMap[p.id] = p; });
+          data.forEach(c => {
+            const p = profileMap[c.user_id];
+            c.profiles = p ? { name: p.name, avatar_url: p.avatar_url } : null;
+          });
+        }
+        setComments(data);
       } catch { /* table may not exist */ }
     };
     loadReactions();
@@ -133,32 +163,77 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   const toggleReaction = async (emoji) => {
     if (!userProfile?.id) return;
     const existing = reactions.find(r => r.user_id === userProfile.id && r.emoji === emoji);
-    try {
-      if (existing) {
+
+    // Check max 4 reactions per user per song
+    const myReactionCount = reactions.filter(r => r.user_id === userProfile.id).length;
+    if (!existing && myReactionCount >= 4) return;
+
+    if (existing) {
+      setReactions(prev => prev.filter(r => r.id !== existing.id));
+      try {
         await supabase.from('song_reactions').delete().eq('id', existing.id);
-        setReactions(prev => prev.filter(r => r.id !== existing.id));
-      } else {
+      } catch { /* keep optimistic state */ }
+    } else {
+      // Optimistic add — never rolled back
+      const tempId = 'temp_' + Date.now();
+      const optimistic = { id: tempId, user_id: userProfile.id, song_id: song.id, emoji };
+      setReactions(prev => [...prev, optimistic]);
+
+      try {
         const { data } = await supabase.from('song_reactions')
           .insert({ user_id: userProfile.id, song_id: song.id, emoji })
           .select()
           .single();
-        if (data) setReactions(prev => [...prev, data]);
-      }
-    } catch { /* graceful fail */ }
+        if (data) {
+          setReactions(prev => prev.map(r => r.id === tempId ? data : r));
+        }
+      } catch { /* keep optimistic state even if DB fails */ }
+    }
   };
 
   const addComment = async () => {
     if (!userProfile?.id || !newComment.trim()) return;
+    const text = newComment.trim();
     setCommentSaving(true);
+
+    // Optimistic update - show comment immediately
+    const tempId = 'temp_' + Date.now();
+    const optimisticComment = {
+      id: tempId,
+      user_id: userProfile.id,
+      song_id: song.id,
+      text,
+      created_at: new Date().toISOString(),
+      profiles: { name: userProfile.name, avatar_url: userProfile.avatar_url },
+    };
+    setComments(prev => [...prev, optimisticComment]);
+    setNewComment('');
+
     try {
-      const { data } = await supabase.from('song_comments')
-        .insert({ user_id: userProfile.id, song_id: song.id, text: newComment.trim() })
-        .select('*, profiles(name, avatar_url)')
+      const { data, error } = await supabase.from('song_comments')
+        .insert({ user_id: userProfile.id, song_id: song.id, text })
+        .select()
         .single();
-      if (data) setComments(prev => [...prev, data]);
-      setNewComment('');
-    } catch { /* graceful fail */ }
+      if (data) {
+        setComments(prev => prev.map(c => c.id === tempId
+          ? { ...data, profiles: { name: userProfile.name, avatar_url: userProfile.avatar_url } }
+          : c
+        ));
+      } else if (error) {
+        // Remove optimistic comment on error
+        setComments(prev => prev.filter(c => c.id !== tempId));
+      }
+    } catch {
+      setComments(prev => prev.filter(c => c.id !== tempId));
+    }
     setCommentSaving(false);
+  };
+
+  const deleteComment = async (commentId) => {
+    setComments(prev => prev.filter(c => c.id !== commentId));
+    try {
+      await supabase.from('song_comments').delete().eq('id', commentId);
+    } catch { /* keep optimistic state */ }
   };
 
   // Audio event listeners
@@ -277,18 +352,24 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     onVote(song.id, sliderValue);
     setShowConfirmation(false);
     setSaved(true);
+    setShowConfetti(true);
     setTimeout(() => setSaved(false), 1500);
+    setTimeout(() => setShowConfetti(false), 3500);
   }, [onVote, song.id, sliderValue]);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Don't capture keys when typing in an input or textarea
+      const tag = e.target.tagName;
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
+
       if (showConfirmation) {
         if (e.key === 'Escape') {
           setShowConfirmation(false);
           e.preventDefault();
         }
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !isTyping) {
           confirmVote();
           e.preventDefault();
         }
@@ -300,6 +381,9 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
         e.preventDefault();
         return;
       }
+
+      // Everything below should not fire when typing in inputs
+      if (isTyping) return;
 
       const keyMap = {
         '1': 0, '2': 1, '3': 2, '4': 3, '5': 4,
@@ -387,6 +471,7 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
               loop
               playsInline
               className="detail-bg-video-el"
+              style={videoPosition ? { objectPosition: `${videoPosition.posX}% ${videoPosition.posY}%` } : undefined}
             />
           </div>
         )}
@@ -424,6 +509,58 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Karaoke button + Country Info button */}
+        <div className="detail-action-bar">
+          {hasAudio && song.lyrics && (
+            <button onClick={() => setShowKaraoke(true)} className="detail-karaoke-btn">
+              <Mic2 size={16} />
+              <span>Karaoke Mode</span>
+            </button>
+          )}
+          {countryInfo && (
+            <button onClick={() => setShowCountryInfo(!showCountryInfo)} className="detail-info-btn">
+              <Info size={16} />
+              <span>{showCountryInfo ? 'Hide Info' : 'Country Info'}</span>
+            </button>
+          )}
+        </div>
+
+        {/* Country Info Card */}
+        {showCountryInfo && countryInfo && (
+          <div className="country-info-card">
+            <div className="country-info-header">
+              <span className="country-info-flag">{song.flag}</span>
+              <div>
+                <h4 className="country-info-name">{song.country}</h4>
+                <p className="country-info-capital"><MapPin size={12} /> {countryInfo.capital}</p>
+              </div>
+            </div>
+            <div className="country-info-stats">
+              <div className="country-info-stat">
+                <Trophy size={14} />
+                <span>{countryInfo.eurovisionWins} win{countryInfo.eurovisionWins !== 1 ? 's' : ''}</span>
+              </div>
+              <div className="country-info-stat">
+                <Calendar size={14} />
+                <span>Since {countryInfo.firstEntry}</span>
+              </div>
+              <div className="country-info-stat">
+                <Users size={14} />
+                <span>{countryInfo.population}</span>
+              </div>
+            </div>
+            <p className="country-info-fact">{countryInfo.funFact}</p>
+            {countryInfo.famousActs.length > 0 && (
+              <div className="country-info-acts">
+                <span className="country-info-acts-label">Famous acts:</span>
+                {countryInfo.famousActs.map(act => (
+                  <span key={act} className="country-info-act-chip">{act}</span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -547,19 +684,19 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
           <h3 className="detail-voting-heading">Reactions</h3>
           <div className="reactions-emoji-bar">
             {EMOJI_OPTIONS.map(emoji => {
-              const count = reactions.filter(r => r.emoji === emoji).length;
-              const isActive = reactions.some(r => r.user_id === userProfile?.id && r.emoji === emoji);
-              return (
-                <button
-                  key={emoji}
-                  onClick={() => toggleReaction(emoji)}
-                  className={`reaction-btn ${isActive ? 'reaction-btn-active' : ''}`}
-                >
-                  <span className="reaction-emoji">{emoji}</span>
-                  {count > 0 && <span className="reaction-count">{count}</span>}
-                </button>
-              );
-            })}
+                const count = reactions.filter(r => r.emoji === emoji).length;
+                const isActive = reactions.some(r => r.user_id === userProfile?.id && r.emoji === emoji);
+                return (
+                  <button
+                    key={emoji}
+                    onClick={() => toggleReaction(emoji)}
+                    className={`reaction-btn ${isActive ? 'reaction-btn-active' : ''}`}
+                  >
+                    <span className="reaction-emoji">{emoji}</span>
+                    <span className="reaction-count">{count}</span>
+                  </button>
+                );
+              })}
           </div>
         </div>
 
@@ -584,6 +721,15 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
                     </div>
                     <p className="comment-text">{c.text}</p>
                   </div>
+                  {c.user_id === userProfile?.id && (
+                    <button
+                      onClick={() => deleteComment(c.id)}
+                      className="comment-delete-btn"
+                      title="Delete comment"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -606,6 +752,14 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
             </button>
           </div>
         </div>
+
+        {/* Confetti */}
+        <Confetti active={showConfetti} />
+
+        {/* Karaoke Mode */}
+        {showKaraoke && (
+          <KaraokeMode song={song} onClose={() => setShowKaraoke(false)} />
+        )}
 
         {/* Vote Confirmation Modal */}
         {showConfirmation && (
