@@ -46,6 +46,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
   const [themeForm, setThemeForm] = useState({ ...theme });
   const [confirmAction, setConfirmAction] = useState(null);
   const [songSubTab, setSongSubTab] = useState('list'); // 'list' | 'videos'
+  const [songFilter, setSongFilter] = useState('all'); // 'all' | 'ready' | 'not-ready'
   const [logoUploading, setLogoUploading] = useState(false);
 
   // Merge built-in songs with custom songs (custom overrides built-in by ID), sorted alphabetically by country
@@ -58,6 +59,29 @@ const AdminPanel = ({ onBack, userProfile }) => {
       .map(s => ({ ...s, _isBuiltIn: false }));
     return [...merged, ...customOnly].sort((a, b) => a.country.localeCompare(b.country));
   }, [songs]);
+
+  // Song readiness: a song is "ready" if it has artist, title, lyrics, and audio
+  const isSongReady = (song) =>
+    !!(song.artist && song.title && song.lyrics && song.audio_url);
+
+  const readySongs = useMemo(() => allSongs.filter(isSongReady), [allSongs]);
+  const notReadySongs = useMemo(() => allSongs.filter(s => !isSongReady(s)), [allSongs]);
+
+  const filteredSongs = useMemo(() => {
+    if (songFilter === 'ready') return readySongs;
+    if (songFilter === 'not-ready') return notReadySongs;
+    return allSongs;
+  }, [allSongs, readySongs, notReadySongs, songFilter]);
+
+  // What's missing for a not-ready song
+  const getMissing = (song) => {
+    const missing = [];
+    if (!song.artist) missing.push('artist');
+    if (!song.title) missing.push('title');
+    if (!song.lyrics) missing.push('lyrics');
+    if (!song.audio_url) missing.push('audio');
+    return missing;
+  };
 
   // Song form state
   const [showSongForm, setShowSongForm] = useState(false);
@@ -531,6 +555,28 @@ const AdminPanel = ({ onBack, userProfile }) => {
             </button>
           </div>
 
+          {/* Filter tabs: All / Ready / Not Ready */}
+          <div className="admin-song-filters">
+            <button
+              className={`admin-song-filter-btn ${songFilter === 'all' ? 'admin-song-filter-active' : ''}`}
+              onClick={() => setSongFilter('all')}
+            >
+              All <span className="admin-song-filter-count">{allSongs.length}</span>
+            </button>
+            <button
+              className={`admin-song-filter-btn admin-song-filter-ready ${songFilter === 'ready' ? 'admin-song-filter-active' : ''}`}
+              onClick={() => setSongFilter('ready')}
+            >
+              <CheckCircle size={14} /> Ready <span className="admin-song-filter-count">{readySongs.length}</span>
+            </button>
+            <button
+              className={`admin-song-filter-btn admin-song-filter-notready ${songFilter === 'not-ready' ? 'admin-song-filter-active' : ''}`}
+              onClick={() => setSongFilter('not-ready')}
+            >
+              <AlertCircle size={14} /> Not Ready <span className="admin-song-filter-count">{notReadySongs.length}</span>
+            </button>
+          </div>
+
           {/* Song Form Modal */}
           {showSongForm && (
             <div className="admin-form-overlay" onClick={() => { setShowSongForm(false); setEditingSong(null); }}>
@@ -695,12 +741,24 @@ const AdminPanel = ({ onBack, userProfile }) => {
 
           {/* Songs List */}
           <div className="admin-songs-list">
-            {allSongs.map((song) => (
-              <div key={song.id} className="admin-song-row">
+            {songFilter === 'all' && notReadySongs.length > 0 && readySongs.length > 0 && (
+              <div className="admin-song-category-header admin-song-category-notready">
+                <AlertCircle size={16} />
+                <span>Not Ready</span>
+                <span className="admin-song-category-count">{notReadySongs.length}</span>
+              </div>
+            )}
+            {(songFilter === 'all' ? notReadySongs : songFilter === 'not-ready' ? filteredSongs : []).map((song) => {
+              const missing = getMissing(song);
+              return (
+              <div key={song.id} className="admin-song-row admin-song-row-notready">
                 <span className="admin-song-flag">{song.flag}</span>
                 <div className="admin-song-info">
-                  <p className="admin-song-title">{song.title}</p>
-                  <p className="admin-song-meta">{song.artist} — {song.country}</p>
+                  <p className="admin-song-title">{song.title || <span className="admin-song-missing-title">Untitled</span>}</p>
+                  <p className="admin-song-meta">{song.artist || 'No artist'} — {song.country}</p>
+                  <p className="admin-song-missing">
+                    Missing: {missing.join(', ')}
+                  </p>
                 </div>
                 <div className="admin-song-badges">
                   {song.audio_url ? (
@@ -718,7 +776,49 @@ const AdminPanel = ({ onBack, userProfile }) => {
                       <Clock size={12} /> Timed
                     </span>
                   )}
-                  {song.lyrics && !song.lyrics_timing?.length && song.audio_url && (
+                  <span className="admin-badge">{song.genre || 'No genre'}</span>
+                </div>
+                <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song / upload audio">
+                  <Pencil size={16} />
+                </button>
+                {song.audio_url && song.lyrics && (
+                  <button onClick={() => setTimingEditorSong(song)} className="admin-edit-btn" title="Set lyrics timing">
+                    <Clock size={16} />
+                  </button>
+                )}
+                {!song._isBuiltIn && (
+                  <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+              );
+            })}
+
+            {songFilter === 'all' && readySongs.length > 0 && (
+              <div className="admin-song-category-header admin-song-category-ready">
+                <CheckCircle size={16} />
+                <span>Ready</span>
+                <span className="admin-song-category-count">{readySongs.length}</span>
+              </div>
+            )}
+            {(songFilter === 'all' ? readySongs : songFilter === 'ready' ? filteredSongs : []).map((song) => (
+              <div key={song.id} className="admin-song-row admin-song-row-ready">
+                <span className="admin-song-flag">{song.flag}</span>
+                <div className="admin-song-info">
+                  <p className="admin-song-title">{song.title}</p>
+                  <p className="admin-song-meta">{song.artist} — {song.country}</p>
+                </div>
+                <div className="admin-song-badges">
+                  <span className="admin-badge admin-badge-audio">
+                    <Music size={12} /> Audio
+                  </span>
+                  {song.lyrics_timing && song.lyrics_timing.length > 0 && (
+                    <span className="admin-badge admin-badge-audio">
+                      <Clock size={12} /> Timed
+                    </span>
+                  )}
+                  {song.lyrics && !song.lyrics_timing?.length && (
                     <span className="admin-badge admin-badge-noaudio">No timing</span>
                   )}
                   <span className="admin-badge">{song.genre || 'No genre'}</span>
@@ -738,6 +838,17 @@ const AdminPanel = ({ onBack, userProfile }) => {
                 )}
               </div>
             ))}
+
+            {filteredSongs.length === 0 && (
+              <div className="ev-empty" style={{ padding: '40px 20px' }}>
+                <Music size={36} className="ev-empty-icon" />
+                <p className="ev-empty-title">No {songFilter === 'ready' ? 'ready' : songFilter === 'not-ready' ? 'incomplete' : ''} songs</p>
+                <p className="ev-empty-sub">
+                  {songFilter === 'ready' ? 'Songs need artist, title, lyrics, and audio to be ready.' :
+                   songFilter === 'not-ready' ? 'All songs are complete!' : 'Add your first song to get started.'}
+                </p>
+              </div>
+            )}
           </div>
           </>
           )}

@@ -2385,6 +2385,103 @@ input:focus {
   font-weight: 400 !important;
 }
 
+/* Song filter tabs */
+.admin-song-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.admin-song-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(196, 181, 253, 0.6);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.admin-song-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(196, 181, 253, 0.9);
+}
+.admin-song-filter-active {
+  background: rgba(139, 92, 246, 0.15) !important;
+  border-color: rgba(139, 92, 246, 0.3) !important;
+  color: #c4b5fd !important;
+}
+.admin-song-filter-active.admin-song-filter-ready {
+  background: rgba(34, 197, 94, 0.12) !important;
+  border-color: rgba(34, 197, 94, 0.25) !important;
+  color: #86efac !important;
+}
+.admin-song-filter-active.admin-song-filter-notready {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.2) !important;
+  color: #fca5a5 !important;
+}
+.admin-song-filter-count {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 7px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* Song category headers */
+.admin-song-category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+.admin-song-category-ready {
+  background: rgba(34, 197, 94, 0.08);
+  color: #86efac;
+  border: 1px solid rgba(34, 197, 94, 0.15);
+}
+.admin-song-category-notready {
+  background: rgba(239, 68, 68, 0.06);
+  color: rgba(252, 165, 165, 0.7);
+  border: 1px solid rgba(239, 68, 68, 0.12);
+}
+.admin-song-category-count {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+}
+
+/* Song row status variants */
+.admin-song-row-ready {
+  border-left: 3px solid rgba(34, 197, 94, 0.3);
+}
+.admin-song-row-notready {
+  border-left: 3px solid rgba(239, 68, 68, 0.25);
+}
+.admin-song-missing {
+  color: rgba(252, 165, 165, 0.5);
+  font-size: 0.72rem;
+  margin: 2px 0 0;
+  font-style: italic;
+}
+.admin-song-missing-title {
+  color: rgba(252, 165, 165, 0.4);
+  font-style: italic;
+  font-weight: 400;
+}
+
 .admin-songs-list {
   display: flex;
   flex-direction: column;
