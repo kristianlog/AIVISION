@@ -207,6 +207,9 @@ const AdminPanel = ({ onBack, userProfile }) => {
   const [allUsers, setAllUsers] = useState([]);
   const [allRatings, setAllRatings] = useState([]);
 
+  // Voting deadline
+  const [votingDeadline, setVotingDeadline] = useState('');
+
   // Video upload state
   const [videoUploading, setVideoUploading] = useState({});
   const videoInputRefs = useRef({});
@@ -262,6 +265,16 @@ const AdminPanel = ({ onBack, userProfile }) => {
         const { data: ratingsData, error } = await supabase.from('ratings').select('*');
         if (!error) setAllRatings(ratingsData || []);
       } catch { /* ratings table may not exist yet */ }
+
+      // Load voting deadline
+      try {
+        const { data: deadlineData } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'voting_deadline')
+          .single();
+        if (deadlineData?.value) setVotingDeadline(deadlineData.value);
+      } catch { /* */ }
     } catch (err) {
       console.error('Error loading admin data:', err);
     }
@@ -1591,6 +1604,70 @@ const AdminPanel = ({ onBack, userProfile }) => {
             <div className="tools-stat-card">
               <div className="tools-stat-value">{allSongs.length}</div>
               <div className="tools-stat-label">Songs</div>
+            </div>
+          </div>
+
+          {/* Voting Deadline */}
+          <div className="tools-action-card">
+            <div className="tools-action-info">
+              <p className="tools-action-title">Voting Deadline</p>
+              <p className="tools-action-desc">
+                {votingDeadline
+                  ? `Set to ${new Date(votingDeadline).toLocaleString()}`
+                  : 'No deadline set — voting is open indefinitely.'}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="datetime-local"
+                value={votingDeadline ? votingDeadline.slice(0, 16) : ''}
+                onChange={(e) => setVotingDeadline(e.target.value ? new Date(e.target.value).toISOString() : '')}
+                style={{
+                  padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: 8,
+                  color: 'white',
+                  fontSize: '0.85rem',
+                }}
+              />
+              <button
+                className="tools-action-btn tools-btn-primary"
+                onClick={async () => {
+                  try {
+                    if (votingDeadline) {
+                      await supabase.from('app_settings').upsert(
+                        { key: 'voting_deadline', value: votingDeadline },
+                        { onConflict: 'key' }
+                      );
+                      showMessage('Deadline saved!');
+                    } else {
+                      await supabase.from('app_settings').delete().eq('key', 'voting_deadline');
+                      showMessage('Deadline removed');
+                    }
+                  } catch {
+                    showMessage('Failed to save deadline', 'error');
+                  }
+                }}
+              >
+                <Save size={14} /> Save
+              </button>
+              {votingDeadline && (
+                <button
+                  className="tools-action-btn tools-btn-danger"
+                  onClick={async () => {
+                    try {
+                      await supabase.from('app_settings').delete().eq('key', 'voting_deadline');
+                      setVotingDeadline('');
+                      showMessage('Deadline removed');
+                    } catch {
+                      showMessage('Failed to remove deadline', 'error');
+                    }
+                  }}
+                >
+                  <Trash2 size={14} /> Clear
+                </button>
+              )}
             </div>
           </div>
 

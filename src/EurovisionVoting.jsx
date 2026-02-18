@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Music, BarChart3, Heart, RotateCcw, Search, X as XIcon, Award, Trophy, Flame, User, UserPlus, UserCheck, UserX } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react';
+import { Music, BarChart3, Heart, RotateCcw, Search, X as XIcon, Award, Trophy, Flame, User, UserPlus, UserCheck, UserX, Pencil, Check, Clock } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { useTheme } from './ThemeContext';
 import SONGS from './songs';
@@ -12,14 +12,29 @@ const TABS = [
   { id: 'songs', label: 'Songs', icon: Music },
   { id: 'votes', label: 'My Votes', icon: Heart },
   { id: 'leaderboard', label: 'Leaderboard', icon: BarChart3 },
-  { id: 'profile', label: 'Profile', icon: User },
 ];
 
 const STORAGE_KEY = 'aivision_votes';
 
-const EurovisionVoting = ({ userProfile }) => {
+const SongCardSkeleton = () => (
+  <div className="song-card-skeleton">
+    <div className="skeleton-flag skeleton-pulse" />
+    <div className="skeleton-body">
+      <div className="skeleton-title skeleton-pulse" />
+      <div className="skeleton-artist skeleton-pulse" />
+      <div className="skeleton-country skeleton-pulse" />
+    </div>
+    <div className="skeleton-footer skeleton-pulse" />
+  </div>
+);
+
+const EurovisionVoting = forwardRef(({ userProfile }, ref) => {
   const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState('songs');
+
+  useImperativeHandle(ref, () => ({
+    navigateToProfile: () => setActiveTab('profile'),
+  }));
   const [selectedSong, setSelectedSong] = useState(null);
   const [userVotes, setUserVotes] = useState({});
   const [allVotes, setAllVotes] = useState([]);
@@ -31,6 +46,18 @@ const EurovisionVoting = ({ userProfile }) => {
   const [showUndo, setShowUndo] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterGenre, setFilterGenre] = useState('all');
+  const [songsLoading, setSongsLoading] = useState(true);
+
+  // Voting deadline
+  const [votingDeadline, setVotingDeadline] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(null);
+
+  // Global toast messages
+  const [toastMessage, setToastMessage] = useState(null);
+  const showToast = useCallback((text, type = 'success') => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 3000);
+  }, []);
 
   // Friends system
   const [friends, setFriends] = useState([]);
@@ -38,6 +65,58 @@ const EurovisionVoting = ({ userProfile }) => {
   const [allUsers, setAllUsers] = useState([]);
   const [friendSearch, setFriendSearch] = useState('');
   const [profileConfetti, setProfileConfetti] = useState(false);
+
+  // Name editing
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameMessage, setNameMessage] = useState(null);
+
+  const NAME_CHANGE_COOLDOWN = 7 * 24 * 60 * 60 * 1000; // 1 week in ms
+  const NAME_CHANGE_KEY = `aivision_name_changed_${userProfile?.id}`;
+
+  const getNameChangeCooldown = useCallback(() => {
+    try {
+      const lastChanged = localStorage.getItem(NAME_CHANGE_KEY);
+      if (!lastChanged) return null;
+      const elapsed = Date.now() - parseInt(lastChanged, 10);
+      if (elapsed >= NAME_CHANGE_COOLDOWN) return null;
+      const remaining = NAME_CHANGE_COOLDOWN - elapsed;
+      const days = Math.ceil(remaining / (24 * 60 * 60 * 1000));
+      return days;
+    } catch { return null; }
+  }, [NAME_CHANGE_KEY]);
+
+  const handleNameSave = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === userProfile?.name) {
+      setEditingName(false);
+      return;
+    }
+    const cooldownDays = getNameChangeCooldown();
+    if (cooldownDays !== null) {
+      setNameMessage(`You can change your name again in ${cooldownDays} day${cooldownDays !== 1 ? 's' : ''}`);
+      setTimeout(() => setNameMessage(null), 3000);
+      return;
+    }
+    setNameSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ name: trimmed })
+        .eq('id', userProfile.id);
+      if (error) throw error;
+      userProfile.name = trimmed;
+      localStorage.setItem(NAME_CHANGE_KEY, Date.now().toString());
+      setEditingName(false);
+      setNameMessage('Name updated!');
+      setTimeout(() => setNameMessage(null), 2000);
+    } catch {
+      setNameMessage('Failed to update name');
+      setTimeout(() => setNameMessage(null), 3000);
+    }
+    setNameSaving(false);
+  };
 
   const toFakeVotes = useCallback((votesMap) => {
     return Object.entries(votesMap).map(([song_id, score]) => ({
@@ -166,13 +245,83 @@ const EurovisionVoting = ({ userProfile }) => {
       } catch { /* */ }
     };
 
-    loadVotes();
-    loadCountryVideos();
-    loadCustomSongs();
-    loadAllRatings();
+    const loadDeadline = async () => {
+      try {
+        const { data } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'voting_deadline')
+          .single();
+        if (data?.value) setVotingDeadline(data.value);
+      } catch { /* table may not exist */ }
+    };
+
+    Promise.all([loadVotes(), loadCountryVideos(), loadCustomSongs(), loadAllRatings()])
+      .finally(() => setSongsLoading(false));
+    loadDeadline();
     loadFriends();
     loadAllUsers();
   }, [userProfile?.id, loadLocalVotes]);
+
+  // Real-time subscriptions
+  useEffect(() => {
+    if (useLocal || !userProfile?.id) return;
+
+    const channels = [];
+
+    // Live votes — update allVotes when anyone votes
+    try {
+      const votesChannel = supabase
+        .channel('realtime-votes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'votes' }, async () => {
+          const { data } = await supabase.from('votes').select('*');
+          if (data) {
+            setAllVotes(data);
+            const myVotes = {};
+            data.forEach((vote) => {
+              if (vote.user_id === userProfile.id) myVotes[vote.song_id] = vote.score;
+            });
+            setUserVotes(myVotes);
+          }
+        })
+        .subscribe();
+      channels.push(votesChannel);
+    } catch { /* realtime may not be enabled */ }
+
+    // Live friend requests
+    try {
+      const friendsChannel = supabase
+        .channel('realtime-friends')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'friends',
+          filter: `addressee_id=eq.${userProfile.id}` }, async () => {
+          const { data } = await supabase.from('friends')
+            .select('*, requester:profiles!friends_requester_id_fkey(id, name, email, avatar_url), addressee:profiles!friends_addressee_id_fkey(id, name, email, avatar_url)')
+            .or(`requester_id.eq.${userProfile.id},addressee_id.eq.${userProfile.id}`);
+          if (data) {
+            setFriends(data.filter(f => f.status === 'accepted'));
+            setFriendRequests(data.filter(f => f.status === 'pending' && f.addressee_id === userProfile.id));
+          }
+        })
+        .subscribe();
+      channels.push(friendsChannel);
+    } catch { /* realtime may not be enabled */ }
+
+    // Live ratings
+    try {
+      const ratingsChannel = supabase
+        .channel('realtime-ratings')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings' }, async () => {
+          const { data } = await supabase.from('ratings').select('*');
+          if (data) setAllRatings(data);
+        })
+        .subscribe();
+      channels.push(ratingsChannel);
+    } catch { /* */ }
+
+    return () => {
+      channels.forEach(ch => supabase.removeChannel(ch));
+    };
+  }, [userProfile?.id, useLocal]);
 
   const handleVote = async (songId, score) => {
     // Save previous state for undo
@@ -215,6 +364,7 @@ const EurovisionVoting = ({ userProfile }) => {
       const { data } = await supabase.from('votes').select('*');
       if (data) setAllVotes(data);
     } catch {
+      showToast('Vote saved locally (offline)', 'error');
       saveLocalVotes(newVotes);
     }
   };
@@ -258,6 +408,7 @@ const EurovisionVoting = ({ userProfile }) => {
       const { data } = await supabase.from('votes').select('*');
       if (data) setAllVotes(data);
     } catch {
+      showToast('Undo saved locally (offline)', 'error');
       saveLocalVotes(newVotes);
     }
   };
@@ -279,7 +430,9 @@ const EurovisionVoting = ({ userProfile }) => {
         setFriends(data.filter(f => f.status === 'accepted'));
         setFriendRequests(data.filter(f => f.status === 'pending' && f.addressee_id === userProfile.id));
       }
-    } catch { /* table may not exist */ }
+    } catch {
+      showToast('Could not send friend request', 'error');
+    }
   };
 
   const respondFriendRequest = async (requestId, accept) => {
@@ -299,14 +452,18 @@ const EurovisionVoting = ({ userProfile }) => {
         setFriends(data.filter(f => f.status === 'accepted'));
         setFriendRequests(data.filter(f => f.status === 'pending' && f.addressee_id === userProfile.id));
       }
-    } catch { /* */ }
+    } catch {
+      showToast('Failed to respond to request', 'error');
+    }
   };
 
   const removeFriend = async (friendshipId) => {
     try {
       await supabase.from('friends').delete().eq('id', friendshipId);
       setFriends(prev => prev.filter(f => f.id !== friendshipId));
-    } catch { /* */ }
+    } catch {
+      showToast('Failed to remove friend', 'error');
+    }
   };
 
   const getFriendProfile = (friendship) => {
@@ -374,6 +531,25 @@ const EurovisionVoting = ({ userProfile }) => {
     return result;
   }, [votedCount, totalSongs]);
 
+  // Voting deadline countdown
+  useEffect(() => {
+    if (!votingDeadline) { setTimeLeft(null); return; }
+    const calc = () => {
+      const diff = new Date(votingDeadline).getTime() - Date.now();
+      if (diff <= 0) { setTimeLeft('closed'); return; }
+      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const m = Math.floor((diff / (1000 * 60)) % 60);
+      const s = Math.floor((diff / 1000) % 60);
+      if (d > 0) setTimeLeft(`${d}d ${h}h ${m}m`);
+      else if (h > 0) setTimeLeft(`${h}h ${m}m ${s}s`);
+      else setTimeLeft(`${m}m ${s}s`);
+    };
+    calc();
+    const interval = setInterval(calc, 1000);
+    return () => clearInterval(interval);
+  }, [votingDeadline]);
+
   // Keyboard shortcuts for song navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -430,6 +606,14 @@ const EurovisionVoting = ({ userProfile }) => {
             )}
           </p>
         </div>
+
+        {/* Voting Deadline */}
+        {timeLeft && (
+          <div className={`ev-deadline ${timeLeft === 'closed' ? 'ev-deadline-closed' : ''}`}>
+            <Clock size={14} />
+            <span>{timeLeft === 'closed' ? 'Voting has ended' : `Voting closes in ${timeLeft}`}</span>
+          </div>
+        )}
 
         {/* Badges */}
         {badges.length > 0 && (
@@ -503,7 +687,13 @@ const EurovisionVoting = ({ userProfile }) => {
             </select>
           </div>
 
-          {filteredSongs.length === 0 ? (
+          {songsLoading ? (
+            <div className="ev-songs-grid">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <SongCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : filteredSongs.length === 0 ? (
             <div className="ev-empty">
               <Search size={48} className="ev-empty-icon" />
               <p className="ev-empty-title">No songs found</p>
@@ -591,7 +781,49 @@ const EurovisionVoting = ({ userProfile }) => {
               )}
             </div>
             <div className="profile-card-info">
-              <h3 className="profile-card-name">{userProfile?.name}</h3>
+              {editingName ? (
+                <div className="profile-name-edit">
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleNameSave()}
+                    className="profile-name-input"
+                    autoFocus
+                    maxLength={30}
+                    placeholder="Your name"
+                  />
+                  <button onClick={handleNameSave} disabled={nameSaving} className="profile-name-save-btn" title="Save">
+                    <Check size={14} />
+                  </button>
+                  <button onClick={() => setEditingName(false)} className="profile-name-cancel-btn" title="Cancel">
+                    <XIcon size={14} />
+                  </button>
+                </div>
+              ) : (
+                <h3 className="profile-card-name">
+                  {userProfile?.name}
+                  <button
+                    onClick={() => {
+                      const cooldownDays = getNameChangeCooldown();
+                      if (cooldownDays !== null) {
+                        setNameMessage(`You can change your name again in ${cooldownDays} day${cooldownDays !== 1 ? 's' : ''}`);
+                        setTimeout(() => setNameMessage(null), 3000);
+                        return;
+                      }
+                      setNewName(userProfile?.name || '');
+                      setEditingName(true);
+                    }}
+                    className="profile-name-edit-btn"
+                    title="Edit name"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                </h3>
+              )}
+              {nameMessage && (
+                <p className="profile-name-message">{nameMessage}</p>
+              )}
               <p className="profile-card-email">{userProfile?.email}</p>
             </div>
             <div className="profile-card-stats">
@@ -737,6 +969,13 @@ const EurovisionVoting = ({ userProfile }) => {
         />
       )}
 
+      {/* Global Toast */}
+      {toastMessage && (
+        <div className={`global-toast ${toastMessage.type === 'error' ? 'global-toast-error' : 'global-toast-success'}`}>
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
+
       {/* Undo Toast */}
       {showUndo && lastVote && (
         <div className="undo-toast">
@@ -765,15 +1004,12 @@ const EurovisionVoting = ({ userProfile }) => {
               {tab.id === 'votes' && votedCount > 0 && (
                 <span className="mobile-nav-badge">{votedCount}</span>
               )}
-              {tab.id === 'profile' && friendRequests.length > 0 && (
-                <span className="mobile-nav-badge">{friendRequests.length}</span>
-              )}
             </button>
           );
         })}
       </div>
     </div>
   );
-};
+});
 
 export default EurovisionVoting;

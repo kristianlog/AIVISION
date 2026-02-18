@@ -28,7 +28,21 @@ const SongCard = ({ song, userScore, onClick, videoUrl, videoPosition }) => {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Video overlay on hover */}
+      {/* Static first-frame thumbnail from hover video */}
+      {videoUrl && (
+        <div className={`song-card-cover-bg ${isHovering ? 'song-card-cover-hidden' : ''}`}>
+          <video
+            src={videoUrl}
+            muted
+            playsInline
+            preload="metadata"
+            className="song-card-cover-media"
+            style={videoPosition ? { objectPosition: `${videoPosition.posX}% ${videoPosition.posY}%` } : undefined}
+          />
+        </div>
+      )}
+
+      {/* Video overlay on hover — plays on hover */}
       {videoUrl && (
         <div className={`song-card-video-overlay ${isHovering ? 'song-card-video-visible' : ''}`}>
           <video
