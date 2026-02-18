@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS custom_songs (
 -- If table already exists, add missing columns
 ALTER TABLE custom_songs ADD COLUMN IF NOT EXISTS cover_url TEXT;
 ALTER TABLE custom_songs ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+ALTER TABLE custom_songs ADD COLUMN IF NOT EXISTS published BOOLEAN DEFAULT true;
 
 -- RLS for custom_songs
 ALTER TABLE custom_songs ENABLE ROW LEVEL SECURITY;

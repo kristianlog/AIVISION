@@ -6,7 +6,8 @@ import LyricsTimingEditor from './LyricsTimingEditor';
 import {
   ArrowLeft, Upload, Music, Video, Trash2, Plus, Save, X, Film,
   CheckCircle, AlertCircle, Loader2, Pencil, Clock,
-  Users, Wrench, Download, Palette, Image, BarChart3, TrendingUp, Zap
+  Users, Wrench, Download, Palette, Image, BarChart3, TrendingUp, Zap,
+  Search, Play, Pause, GripVertical, Eye, EyeOff
 } from 'lucide-react';
 
 // Country name → ISO 3166-1 alpha-2 code (for auto-flag)
@@ -47,7 +48,12 @@ const AdminPanel = ({ onBack, userProfile }) => {
   const [confirmAction, setConfirmAction] = useState(null);
   const [songSubTab, setSongSubTab] = useState('list'); // 'list' | 'videos'
   const [songFilter, setSongFilter] = useState('all'); // 'all' | 'ready' | 'not-ready'
+  const [songSearch, setSongSearch] = useState('');
   const [logoUploading, setLogoUploading] = useState(false);
+  const [playingSongId, setPlayingSongId] = useState(null);
+  const audioPreviewRef = useRef(null);
+  const [draggedSongId, setDraggedSongId] = useState(null);
+  const [previewSong, setPreviewSong] = useState(null);
 
   // Merge built-in songs with custom songs (custom overrides built-in by ID), sorted alphabetically by country
   const allSongs = useMemo(() => {
@@ -64,14 +70,25 @@ const AdminPanel = ({ onBack, userProfile }) => {
   const isSongReady = (song) =>
     !!(song.artist && song.title && song.lyrics && song.audio_url);
 
-  const readySongs = useMemo(() => allSongs.filter(isSongReady), [allSongs]);
-  const notReadySongs = useMemo(() => allSongs.filter(s => !isSongReady(s)), [allSongs]);
+  // Apply search filter first
+  const searchedSongs = useMemo(() => {
+    if (!songSearch.trim()) return allSongs;
+    const q = songSearch.toLowerCase();
+    return allSongs.filter(s =>
+      s.country?.toLowerCase().includes(q) ||
+      s.title?.toLowerCase().includes(q) ||
+      s.artist?.toLowerCase().includes(q)
+    );
+  }, [allSongs, songSearch]);
+
+  const readySongs = useMemo(() => searchedSongs.filter(isSongReady), [searchedSongs]);
+  const notReadySongs = useMemo(() => searchedSongs.filter(s => !isSongReady(s)), [searchedSongs]);
 
   const filteredSongs = useMemo(() => {
     if (songFilter === 'ready') return readySongs;
     if (songFilter === 'not-ready') return notReadySongs;
-    return allSongs;
-  }, [allSongs, readySongs, notReadySongs, songFilter]);
+    return searchedSongs;
+  }, [searchedSongs, readySongs, notReadySongs, songFilter]);
 
   // What's missing for a not-ready song
   const getMissing = (song) => {
@@ -81,6 +98,92 @@ const AdminPanel = ({ onBack, userProfile }) => {
     if (!song.lyrics) missing.push('lyrics');
     if (!song.audio_url) missing.push('audio');
     return missing;
+  };
+
+  // Audio preview
+  const handlePlayPreview = (song) => {
+    if (playingSongId === song.id) {
+      audioPreviewRef.current?.pause();
+      setPlayingSongId(null);
+      return;
+    }
+    if (audioPreviewRef.current) {
+      audioPreviewRef.current.pause();
+    }
+    const audio = new Audio(song.audio_url);
+    audio.volume = 0.5;
+    audio.onended = () => setPlayingSongId(null);
+    audio.play();
+    audioPreviewRef.current = audio;
+    setPlayingSongId(song.id);
+  };
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => { audioPreviewRef.current?.pause(); };
+  }, []);
+
+  // Drag & drop reordering
+  const handleDragStart = (songId) => setDraggedSongId(songId);
+
+  const handleDrop = async (targetSongId) => {
+    if (!draggedSongId || draggedSongId === targetSongId) {
+      setDraggedSongId(null);
+      return;
+    }
+    const list = songFilter === 'ready' ? [...readySongs] : songFilter === 'not-ready' ? [...notReadySongs] : [...searchedSongs];
+    const fromIdx = list.findIndex(s => s.id === draggedSongId);
+    const toIdx = list.findIndex(s => s.id === targetSongId);
+    if (fromIdx === -1 || toIdx === -1) { setDraggedSongId(null); return; }
+
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(toIdx, 0, moved);
+
+    // Update sort_order for reordered songs
+    const updates = list.map((s, i) => ({ id: s.id, sort_order: i }));
+    setDraggedSongId(null);
+
+    try {
+      for (const u of updates) {
+        await supabase.from('custom_songs').upsert({
+          id: u.id,
+          country: list.find(s => s.id === u.id).country,
+          flag: list.find(s => s.id === u.id).flag,
+          artist: list.find(s => s.id === u.id).artist,
+          title: list.find(s => s.id === u.id).title,
+          genre: list.find(s => s.id === u.id).genre,
+          lyrics: list.find(s => s.id === u.id).lyrics || '',
+          sort_order: u.sort_order,
+        }, { onConflict: 'id' });
+      }
+      showMessage('Order saved!');
+      loadData();
+    } catch (err) {
+      showMessage('Failed to save order', 'error');
+    }
+  };
+
+  // Publish toggle
+  const handleTogglePublish = async (song) => {
+    const newVal = song.published === false ? true : false; // default is published (true/null)
+    try {
+      const { error } = await supabase.from('custom_songs').upsert({
+        id: song.id,
+        country: song.country,
+        flag: song.flag,
+        artist: song.artist,
+        title: song.title,
+        genre: song.genre,
+        lyrics: song.lyrics || '',
+        audio_url: song.audio_url || null,
+        published: newVal,
+      }, { onConflict: 'id' });
+      if (error) throw error;
+      showMessage(newVal ? 'Song published — visible to voters' : 'Song hidden from voters');
+      loadData();
+    } catch (err) {
+      showMessage(err.message || 'Failed to update', 'error');
+    }
   };
 
   // Song form state
@@ -555,13 +658,43 @@ const AdminPanel = ({ onBack, userProfile }) => {
             </button>
           </div>
 
+          {/* Progress bar */}
+          <div className="admin-progress-bar-wrap">
+            <div className="admin-progress-label">
+              <span>{readySongs.length} of {allSongs.length} ready</span>
+              <span>{allSongs.length > 0 ? Math.round((readySongs.length / allSongs.length) * 100) : 0}%</span>
+            </div>
+            <div className="admin-progress-track">
+              <div
+                className="admin-progress-fill"
+                style={{ width: `${allSongs.length > 0 ? (readySongs.length / allSongs.length) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="admin-song-search">
+            <Search size={16} />
+            <input
+              type="text"
+              value={songSearch}
+              onChange={e => setSongSearch(e.target.value)}
+              placeholder="Search by country, title, or artist..."
+            />
+            {songSearch && (
+              <button className="admin-song-search-clear" onClick={() => setSongSearch('')}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
           {/* Filter tabs: All / Ready / Not Ready */}
           <div className="admin-song-filters">
             <button
               className={`admin-song-filter-btn ${songFilter === 'all' ? 'admin-song-filter-active' : ''}`}
               onClick={() => setSongFilter('all')}
             >
-              All <span className="admin-song-filter-count">{allSongs.length}</span>
+              All <span className="admin-song-filter-count">{searchedSongs.length}</span>
             </button>
             <button
               className={`admin-song-filter-btn admin-song-filter-ready ${songFilter === 'ready' ? 'admin-song-filter-active' : ''}`}
@@ -750,9 +883,23 @@ const AdminPanel = ({ onBack, userProfile }) => {
             )}
             {(songFilter === 'all' ? notReadySongs : songFilter === 'not-ready' ? filteredSongs : []).map((song) => {
               const missing = getMissing(song);
+              const isHidden = song.published === false;
               return (
-              <div key={song.id} className="admin-song-row admin-song-row-notready">
-                <span className="admin-song-flag">{song.flag}</span>
+              <div
+                key={song.id}
+                className={`admin-song-row admin-song-row-notready ${draggedSongId === song.id ? 'admin-song-row-dragging' : ''}`}
+                draggable
+                onDragStart={() => handleDragStart(song.id)}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => handleDrop(song.id)}
+                style={isHidden ? { opacity: 0.5 } : undefined}
+              >
+                <span className="admin-song-drag" title="Drag to reorder"><GripVertical size={16} /></span>
+                {song.cover_url ? (
+                  <img src={song.cover_url} alt="" className="admin-song-cover" />
+                ) : (
+                  <span className="admin-song-flag">{song.flag}</span>
+                )}
                 <div className="admin-song-info">
                   <p className="admin-song-title">{song.title || <span className="admin-song-missing-title">Untitled</span>}</p>
                   <p className="admin-song-meta">{song.artist || 'No artist'} — {song.country}</p>
@@ -776,21 +923,37 @@ const AdminPanel = ({ onBack, userProfile }) => {
                       <Clock size={12} /> Timed
                     </span>
                   )}
+                  {isHidden && (
+                    <span className="admin-badge admin-badge-noaudio">Hidden</span>
+                  )}
                   <span className="admin-badge">{song.genre || 'No genre'}</span>
                 </div>
-                <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song / upload audio">
-                  <Pencil size={16} />
-                </button>
-                {song.audio_url && song.lyrics && (
-                  <button onClick={() => setTimingEditorSong(song)} className="admin-edit-btn" title="Set lyrics timing">
-                    <Clock size={16} />
+                <div className="admin-song-actions">
+                  {song.audio_url && (
+                    <button onClick={() => handlePlayPreview(song)} className="admin-play-btn" title={playingSongId === song.id ? 'Pause' : 'Play preview'}>
+                      {playingSongId === song.id ? <Pause size={14} /> : <Play size={14} />}
+                    </button>
+                  )}
+                  <button onClick={() => setPreviewSong(song)} className="admin-edit-btn" title="Preview as voter">
+                    <Eye size={16} />
                   </button>
-                )}
-                {!song._isBuiltIn && (
-                  <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
-                    <Trash2 size={16} />
+                  <button onClick={() => handleTogglePublish(song)} className="admin-edit-btn" title={isHidden ? 'Publish song' : 'Hide from voters'}>
+                    {isHidden ? <EyeOff size={16} /> : <CheckCircle size={16} />}
                   </button>
-                )}
+                  <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song">
+                    <Pencil size={16} />
+                  </button>
+                  {song.audio_url && song.lyrics && (
+                    <button onClick={() => setTimingEditorSong(song)} className="admin-edit-btn" title="Set lyrics timing">
+                      <Clock size={16} />
+                    </button>
+                  )}
+                  {!song._isBuiltIn && (
+                    <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
               );
             })}
@@ -802,9 +965,24 @@ const AdminPanel = ({ onBack, userProfile }) => {
                 <span className="admin-song-category-count">{readySongs.length}</span>
               </div>
             )}
-            {(songFilter === 'all' ? readySongs : songFilter === 'ready' ? filteredSongs : []).map((song) => (
-              <div key={song.id} className="admin-song-row admin-song-row-ready">
-                <span className="admin-song-flag">{song.flag}</span>
+            {(songFilter === 'all' ? readySongs : songFilter === 'ready' ? filteredSongs : []).map((song) => {
+              const isHidden = song.published === false;
+              return (
+              <div
+                key={song.id}
+                className={`admin-song-row admin-song-row-ready ${draggedSongId === song.id ? 'admin-song-row-dragging' : ''}`}
+                draggable
+                onDragStart={() => handleDragStart(song.id)}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => handleDrop(song.id)}
+                style={isHidden ? { opacity: 0.5 } : undefined}
+              >
+                <span className="admin-song-drag" title="Drag to reorder"><GripVertical size={16} /></span>
+                {song.cover_url ? (
+                  <img src={song.cover_url} alt="" className="admin-song-cover" />
+                ) : (
+                  <span className="admin-song-flag">{song.flag}</span>
+                )}
                 <div className="admin-song-info">
                   <p className="admin-song-title">{song.title}</p>
                   <p className="admin-song-meta">{song.artist} — {song.country}</p>
@@ -821,30 +999,48 @@ const AdminPanel = ({ onBack, userProfile }) => {
                   {song.lyrics && !song.lyrics_timing?.length && (
                     <span className="admin-badge admin-badge-noaudio">No timing</span>
                   )}
+                  {isHidden && (
+                    <span className="admin-badge admin-badge-noaudio">Hidden</span>
+                  )}
                   <span className="admin-badge">{song.genre || 'No genre'}</span>
                 </div>
-                <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song / upload audio">
-                  <Pencil size={16} />
-                </button>
-                {song.audio_url && song.lyrics && (
-                  <button onClick={() => setTimingEditorSong(song)} className="admin-edit-btn" title="Set lyrics timing">
-                    <Clock size={16} />
+                <div className="admin-song-actions">
+                  <button onClick={() => handlePlayPreview(song)} className="admin-play-btn" title={playingSongId === song.id ? 'Pause' : 'Play preview'}>
+                    {playingSongId === song.id ? <Pause size={14} /> : <Play size={14} />}
                   </button>
-                )}
-                {!song._isBuiltIn && (
-                  <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
-                    <Trash2 size={16} />
+                  <button onClick={() => setPreviewSong(song)} className="admin-edit-btn" title="Preview as voter">
+                    <Eye size={16} />
                   </button>
-                )}
+                  <button onClick={() => handleTogglePublish(song)} className="admin-edit-btn" title={isHidden ? 'Publish song' : 'Hide from voters'}>
+                    {isHidden ? <EyeOff size={16} /> : <CheckCircle size={16} />}
+                  </button>
+                  <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song">
+                    <Pencil size={16} />
+                  </button>
+                  {song.audio_url && song.lyrics && (
+                    <button onClick={() => setTimingEditorSong(song)} className="admin-edit-btn" title="Set lyrics timing">
+                      <Clock size={16} />
+                    </button>
+                  )}
+                  {!song._isBuiltIn && (
+                    <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
-            ))}
+              );
+            })}
 
             {filteredSongs.length === 0 && (
               <div className="ev-empty" style={{ padding: '40px 20px' }}>
                 <Music size={36} className="ev-empty-icon" />
-                <p className="ev-empty-title">No {songFilter === 'ready' ? 'ready' : songFilter === 'not-ready' ? 'incomplete' : ''} songs</p>
+                <p className="ev-empty-title">
+                  {songSearch ? 'No matches' : `No ${songFilter === 'ready' ? 'ready' : songFilter === 'not-ready' ? 'incomplete' : ''} songs`}
+                </p>
                 <p className="ev-empty-sub">
-                  {songFilter === 'ready' ? 'Songs need artist, title, lyrics, and audio to be ready.' :
+                  {songSearch ? `No songs matching "${songSearch}"` :
+                   songFilter === 'ready' ? 'Songs need artist, title, lyrics, and audio to be ready.' :
                    songFilter === 'not-ready' ? 'All songs are complete!' : 'Add your first song to get started.'}
                 </p>
               </div>
@@ -1639,6 +1835,45 @@ const AdminPanel = ({ onBack, userProfile }) => {
               >
                 Confirm Delete
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Song Preview Modal */}
+      {previewSong && (
+        <div className="admin-form-overlay" onClick={() => setPreviewSong(null)}>
+          <div className="admin-preview-modal" onClick={e => e.stopPropagation()}>
+            <button className="admin-form-close" onClick={() => setPreviewSong(null)}>
+              <X size={20} />
+            </button>
+            <div className="admin-preview-card">
+              {previewSong.cover_url ? (
+                previewSong.cover_url.match(/\.mp4/i) ? (
+                  <video src={previewSong.cover_url} autoPlay muted loop playsInline className="admin-preview-cover" />
+                ) : (
+                  <img src={previewSong.cover_url} alt="" className="admin-preview-cover" />
+                )
+              ) : (
+                <div className="admin-preview-cover-placeholder">
+                  <span className="admin-preview-flag">{previewSong.flag}</span>
+                </div>
+              )}
+              <div className="admin-preview-info">
+                <p className="admin-preview-country">{previewSong.flag} {previewSong.country}</p>
+                <p className="admin-preview-title">{previewSong.title || 'Untitled'}</p>
+                <p className="admin-preview-artist">{previewSong.artist || 'No artist'}</p>
+                <span className="admin-badge" style={{ alignSelf: 'flex-start', marginTop: 4 }}>{previewSong.genre || 'No genre'}</span>
+              </div>
+              {previewSong.audio_url && (
+                <audio controls src={previewSong.audio_url} className="admin-preview-audio" />
+              )}
+              {previewSong.lyrics && (
+                <div className="admin-preview-lyrics">
+                  <p className="admin-preview-lyrics-title">Lyrics</p>
+                  <pre className="admin-preview-lyrics-text">{previewSong.lyrics}</pre>
+                </div>
+              )}
             </div>
           </div>
         </div>

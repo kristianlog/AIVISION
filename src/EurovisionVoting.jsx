@@ -123,7 +123,9 @@ const EurovisionVoting = ({ userProfile }) => {
             : { ...s, sort_order: s.sort_order ?? i });
           const customOnly = data.filter(s => !SONGS.some(b => b.id === s.id))
             .map((s, i) => ({ ...s, sort_order: s.sort_order ?? 100 + i }));
-          const all = [...merged, ...customOnly].sort((a, b) => a.country.localeCompare(b.country));
+          const all = [...merged, ...customOnly]
+            .filter(s => s.published !== false) // hide unpublished songs
+            .sort((a, b) => a.country.localeCompare(b.country));
           setAllSongs(all);
         }
       } catch {

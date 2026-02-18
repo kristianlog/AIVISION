@@ -2482,6 +2482,68 @@ input:focus {
   font-weight: 400;
 }
 
+/* Progress bar */
+.admin-progress-bar-wrap {
+  margin-bottom: 14px;
+}
+.admin-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(196, 181, 253, 0.6);
+  margin-bottom: 6px;
+}
+.admin-progress-track {
+  height: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.admin-progress-fill {
+  height: 100%;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #22c55e, #86efac);
+  transition: width 0.4s ease;
+  min-width: 0;
+}
+
+/* Search bar */
+.admin-song-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  color: rgba(196, 181, 253, 0.5);
+}
+.admin-song-search input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: white;
+  font-size: 0.85rem;
+}
+.admin-song-search input::placeholder {
+  color: rgba(196, 181, 253, 0.35);
+}
+.admin-song-search-clear {
+  background: none;
+  border: none;
+  color: rgba(196, 181, 253, 0.5);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  border-radius: 4px;
+}
+.admin-song-search-clear:hover {
+  color: white;
+}
+
 .admin-songs-list {
   display: flex;
   flex-direction: column;
@@ -2501,6 +2563,145 @@ input:focus {
 
 .admin-song-row:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* Drag handle */
+.admin-song-drag {
+  color: rgba(196, 181, 253, 0.2);
+  cursor: grab;
+  flex-shrink: 0;
+  display: flex;
+  padding: 2px;
+}
+.admin-song-drag:hover {
+  color: rgba(196, 181, 253, 0.5);
+}
+.admin-song-row-dragging {
+  opacity: 0.4 !important;
+  border-style: dashed !important;
+}
+
+/* Cover art thumbnail */
+.admin-song-cover {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* Song actions group */
+.admin-song-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Play/Pause button */
+.admin-play-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+  color: #86efac;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.admin-play-btn:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+/* Song preview modal */
+.admin-preview-modal {
+  background: rgba(15, 10, 30, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  max-width: 440px;
+  width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 0;
+}
+.admin-preview-card {
+  display: flex;
+  flex-direction: column;
+}
+.admin-preview-cover {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 16px 16px 0 0;
+}
+.admin-preview-cover-placeholder {
+  width: 100%;
+  height: 180px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.15));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px 16px 0 0;
+}
+.admin-preview-flag {
+  font-size: 4rem;
+}
+.admin-preview-info {
+  padding: 20px 20px 0;
+  display: flex;
+  flex-direction: column;
+}
+.admin-preview-country {
+  font-size: 0.8rem;
+  color: rgba(196, 181, 253, 0.5);
+  margin: 0 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.admin-preview-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 2px;
+}
+.admin-preview-artist {
+  font-size: 0.9rem;
+  color: rgba(196, 181, 253, 0.6);
+  margin: 0;
+}
+.admin-preview-audio {
+  margin: 16px 20px;
+  width: calc(100% - 40px);
+  height: 36px;
+  border-radius: 8px;
+}
+.admin-preview-lyrics {
+  padding: 0 20px 20px;
+}
+.admin-preview-lyrics-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(196, 181, 253, 0.4);
+  margin: 0 0 8px;
+}
+.admin-preview-lyrics-text {
+  font-family: inherit;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: pre-wrap;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 8px;
 }
 
 .admin-song-flag {
