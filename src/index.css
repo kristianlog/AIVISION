@@ -4679,6 +4679,284 @@ body.light-mode {
 .light-mode .mobile-nav-btn { color: #94a3b8; }
 .light-mode .mobile-nav-active { color: var(--color-primary); }
 
+/* ─── Light Mode: Admin Panel ───────────────────────── */
+.light-mode .admin-section-header h2 { color: #1e293b; }
+.light-mode .admin-section-desc { color: #64748b; }
+
+/* Song rows */
+.light-mode .admin-song-row {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.light-mode .admin-song-row:hover {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.light-mode .admin-song-title { color: #1e293b; }
+.light-mode .admin-song-meta { color: #64748b; }
+.light-mode .admin-song-missing { color: #ef4444; }
+.light-mode .admin-song-missing-title { color: #94a3b8; }
+.light-mode .admin-song-drag { color: rgba(0, 0, 0, 0.15); }
+.light-mode .admin-song-drag:hover { color: rgba(0, 0, 0, 0.35); }
+
+/* Badges */
+.light-mode .admin-badge {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+}
+.light-mode .admin-badge-audio {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+}
+.light-mode .admin-badge-noaudio {
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+}
+
+/* Song action buttons */
+.light-mode .admin-edit-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #64748b;
+}
+.light-mode .admin-edit-btn:hover {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+}
+.light-mode .admin-play-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #64748b;
+}
+.light-mode .admin-play-btn:hover {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+}
+.light-mode .admin-delete-btn {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+.light-mode .admin-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+/* Song filters */
+.light-mode .admin-song-filter-btn {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.03);
+  color: #64748b;
+}
+.light-mode .admin-song-filter-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #334155;
+}
+.light-mode .admin-song-filter-active {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 25%, transparent);
+  color: var(--color-primary);
+}
+.light-mode .admin-song-filter-active.admin-song-filter-ready {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #16a34a;
+}
+.light-mode .admin-song-filter-active.admin-song-filter-notready {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+.light-mode .admin-song-filter-count {
+  background: rgba(0, 0, 0, 0.06);
+  color: #475569;
+}
+
+/* Category headers */
+.light-mode .admin-song-category-header {
+  color: #475569;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+.light-mode .admin-song-category-ready { color: #16a34a; }
+.light-mode .admin-song-category-notready { color: #dc2626; }
+
+/* Progress bar */
+.light-mode .admin-progress-label { color: #64748b; }
+.light-mode .admin-progress-track { background: rgba(0, 0, 0, 0.06); }
+
+/* Search */
+.light-mode .admin-song-search {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #94a3b8;
+}
+.light-mode .admin-song-search input {
+  color: #1e293b;
+}
+.light-mode .admin-song-search input::placeholder { color: #94a3b8; }
+
+/* Form modal */
+.light-mode .admin-form-modal {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  border-color: rgba(0, 0, 0, 0.1);
+}
+.light-mode .admin-form-header h3 { color: #1e293b; }
+.light-mode .admin-form-close {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #64748b;
+}
+.light-mode .admin-form-field label { color: #64748b; }
+.light-mode .admin-form-field input,
+.light-mode .admin-form-field textarea {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #1e293b;
+}
+.light-mode .admin-file-label {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #64748b;
+}
+.light-mode .admin-file-label:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: var(--color-primary);
+}
+.light-mode .admin-cancel-btn {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+.light-mode .admin-empty {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #94a3b8;
+}
+.light-mode .admin-empty p { color: #334155; }
+
+/* User rows */
+.light-mode .admin-user-row {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.light-mode .admin-user-row:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+.light-mode .admin-user-name { color: #1e293b; }
+.light-mode .admin-user-meta { color: #64748b; }
+.light-mode .admin-user-stat-value { color: var(--color-primary); }
+.light-mode .admin-user-stat-label { color: #94a3b8; }
+.light-mode .admin-user-vote-chip {
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  color: var(--color-primary);
+}
+
+/* Video cards */
+.light-mode .admin-video-card {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+.light-mode .admin-video-card:hover {
+  border-color: var(--color-primary);
+}
+.light-mode .admin-video-name { color: #1e293b; }
+.light-mode .admin-video-dropzone {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #94a3b8;
+}
+.light-mode .admin-video-dropzone:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.light-mode .admin-video-status { color: #64748b; }
+.light-mode .admin-video-status-active { color: #16a34a; }
+
+/* ─── Light Mode: Settings ──────────────────────────── */
+.light-mode .settings-field label { color: #64748b; }
+.light-mode .settings-color-input {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+.light-mode .settings-color-hex {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #1e293b;
+}
+.light-mode .settings-preview {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+.light-mode .settings-preview-sub { color: rgba(255, 255, 255, 0.8); }
+.light-mode .settings-section-title {
+  color: #1e293b;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+/* ─── Light Mode: Tools ─────────────────────────────── */
+.light-mode .tools-stat-card {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.light-mode .tools-stat-label { color: #64748b; }
+.light-mode .tools-action-card {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.light-mode .tools-action-title { color: #1e293b; }
+.light-mode .tools-action-desc { color: #64748b; }
+.light-mode .tools-btn-danger {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+.light-mode .tools-btn-danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+.light-mode .tools-confirm-modal {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.light-mode .tools-confirm-title { color: #1e293b; }
+.light-mode .tools-confirm-desc { color: #64748b; }
+.light-mode .tools-confirm-cancel {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #334155;
+}
+.light-mode .tools-confirm-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #dc2626;
+}
+
+/* ─── Light Mode: Analytics ─────────────────────────── */
+.light-mode .analytics-card-desc { color: #64748b; }
+.light-mode .analytics-bar-count { color: #475569; }
+.light-mode .analytics-insight { color: #64748b; }
+.light-mode .analytics-rank-meta { color: #94a3b8; }
+.light-mode .analytics-rank-pts { color: var(--color-primary); }
+.light-mode .analytics-rank-bar-bg { background: rgba(0, 0, 0, 0.06); }
+.light-mode .analytics-rank-num { color: #94a3b8; }
+.light-mode .analytics-avg-label { color: #475569; }
+.light-mode .analytics-avg-bar-bg { background: rgba(0, 0, 0, 0.06); }
+.light-mode .analytics-avg-value { color: var(--color-primary); }
+
+/* ─── Light Mode: Comment delete button ─────────────── */
+.light-mode .comment-delete-btn { color: rgba(239, 68, 68, 0.3); }
+.light-mode .comment-delete-btn:hover {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* ─── Light Mode: Textarea ──────────────────────────── */
+.light-mode textarea {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #1e293b;
+}
+
 @media (max-width: 640px) {
   .reactions-emoji-bar {
     gap: 6px;
