@@ -703,12 +703,18 @@ const AdminPanel = ({ onBack, userProfile }) => {
                   ) : (
                     <span className="admin-badge admin-badge-noaudio">No audio</span>
                   )}
+                  {!song.lyrics && (
+                    <span className="admin-badge admin-badge-noaudio">No lyrics</span>
+                  )}
                   {song.lyrics_timing && song.lyrics_timing.length > 0 && (
                     <span className="admin-badge admin-badge-audio">
                       <Clock size={12} /> Timed
                     </span>
                   )}
-                  <span className="admin-badge">{song.genre}</span>
+                  {song.lyrics && !song.lyrics_timing?.length && song.audio_url && (
+                    <span className="admin-badge admin-badge-noaudio">No timing</span>
+                  )}
+                  <span className="admin-badge">{song.genre || 'No genre'}</span>
                 </div>
                 <button onClick={() => handleEditSong(song)} className="admin-edit-btn" title="Edit song / upload audio">
                   <Pencil size={16} />
@@ -1335,6 +1341,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
                     if (confirmAction === 'reset-votes') {
                       const { error } = await supabase.from('votes').delete().not('user_id', 'is', null);
                       if (error) throw error;
+                      setAllVotes([]);
                       showMessage('All votes have been reset');
                     } else if (confirmAction === 'reset-ratings') {
                       const { error } = await supabase.from('ratings').delete().not('user_id', 'is', null);
@@ -1343,6 +1350,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
                     } else if (confirmAction.type === 'delete-user-votes') {
                       const { error } = await supabase.from('votes').delete().eq('user_id', confirmAction.userId);
                       if (error) throw error;
+                      setAllVotes(prev => prev.filter(v => v.user_id !== confirmAction.userId));
                       showMessage(`Votes for ${confirmAction.userName} deleted`);
                     }
                     setConfirmAction(null);

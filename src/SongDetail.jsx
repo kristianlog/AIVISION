@@ -118,12 +118,23 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
     };
     const loadComments = async () => {
       try {
-        const { data } = await supabase
+        // Try with profile join first
+        const { data, error } = await supabase
           .from('song_comments')
           .select('*, profiles(name, avatar_url)')
           .eq('song_id', song.id)
           .order('created_at', { ascending: true });
-        if (data) setComments(data);
+        if (!error && data) {
+          setComments(data);
+          return;
+        }
+        // Fallback: load without join
+        const { data: plainData } = await supabase
+          .from('song_comments')
+          .select('*')
+          .eq('song_id', song.id)
+          .order('created_at', { ascending: true });
+        if (plainData) setComments(plainData);
       } catch { /* table may not exist */ }
     };
     loadReactions();
@@ -133,31 +144,75 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
   const toggleReaction = async (emoji) => {
     if (!userProfile?.id) return;
     const existing = reactions.find(r => r.user_id === userProfile.id && r.emoji === emoji);
+
+    // Check max 5 reactions per user per song
+    const myReactionCount = reactions.filter(r => r.user_id === userProfile.id).length;
+    if (!existing && myReactionCount >= 5) return;
+
     try {
       if (existing) {
-        await supabase.from('song_reactions').delete().eq('id', existing.id);
         setReactions(prev => prev.filter(r => r.id !== existing.id));
+        await supabase.from('song_reactions').delete().eq('id', existing.id);
       } else {
-        const { data } = await supabase.from('song_reactions')
+        // Optimistic add
+        const tempId = 'temp_' + Date.now();
+        const optimistic = { id: tempId, user_id: userProfile.id, song_id: song.id, emoji };
+        setReactions(prev => [...prev, optimistic]);
+
+        const { data, error } = await supabase.from('song_reactions')
           .insert({ user_id: userProfile.id, song_id: song.id, emoji })
           .select()
           .single();
-        if (data) setReactions(prev => [...prev, data]);
+        if (data) {
+          setReactions(prev => prev.map(r => r.id === tempId ? data : r));
+        } else if (error) {
+          setReactions(prev => prev.filter(r => r.id !== tempId));
+        }
       }
-    } catch { /* graceful fail */ }
+    } catch {
+      // Reload on error
+      try {
+        const { data } = await supabase.from('song_reactions').select('*').eq('song_id', song.id);
+        if (data) setReactions(data);
+      } catch { /* */ }
+    }
   };
 
   const addComment = async () => {
     if (!userProfile?.id || !newComment.trim()) return;
+    const text = newComment.trim();
     setCommentSaving(true);
+
+    // Optimistic update - show comment immediately
+    const tempId = 'temp_' + Date.now();
+    const optimisticComment = {
+      id: tempId,
+      user_id: userProfile.id,
+      song_id: song.id,
+      text,
+      created_at: new Date().toISOString(),
+      profiles: { name: userProfile.name, avatar_url: userProfile.avatar_url },
+    };
+    setComments(prev => [...prev, optimisticComment]);
+    setNewComment('');
+
     try {
-      const { data } = await supabase.from('song_comments')
-        .insert({ user_id: userProfile.id, song_id: song.id, text: newComment.trim() })
-        .select('*, profiles(name, avatar_url)')
+      const { data, error } = await supabase.from('song_comments')
+        .insert({ user_id: userProfile.id, song_id: song.id, text })
+        .select()
         .single();
-      if (data) setComments(prev => [...prev, data]);
-      setNewComment('');
-    } catch { /* graceful fail */ }
+      if (data) {
+        setComments(prev => prev.map(c => c.id === tempId
+          ? { ...data, profiles: { name: userProfile.name, avatar_url: userProfile.avatar_url } }
+          : c
+        ));
+      } else if (error) {
+        // Remove optimistic comment on error
+        setComments(prev => prev.filter(c => c.id !== tempId));
+      }
+    } catch {
+      setComments(prev => prev.filter(c => c.id !== tempId));
+    }
     setCommentSaving(false);
   };
 
@@ -546,20 +601,28 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl })
         <div className="song-reactions-section">
           <h3 className="detail-voting-heading">Reactions</h3>
           <div className="reactions-emoji-bar">
-            {EMOJI_OPTIONS.map(emoji => {
-              const count = reactions.filter(r => r.emoji === emoji).length;
-              const isActive = reactions.some(r => r.user_id === userProfile?.id && r.emoji === emoji);
-              return (
-                <button
-                  key={emoji}
-                  onClick={() => toggleReaction(emoji)}
-                  className={`reaction-btn ${isActive ? 'reaction-btn-active' : ''}`}
-                >
-                  <span className="reaction-emoji">{emoji}</span>
-                  {count > 0 && <span className="reaction-count">{count}</span>}
-                </button>
-              );
-            })}
+            {[...EMOJI_OPTIONS]
+              .map(emoji => ({
+                emoji,
+                count: reactions.filter(r => r.emoji === emoji).length,
+                isActive: reactions.some(r => r.user_id === userProfile?.id && r.emoji === emoji),
+              }))
+              .sort((a, b) => b.count - a.count)
+              .map(({ emoji, count, isActive }) => {
+                const myReactionCount = reactions.filter(r => r.user_id === userProfile?.id).length;
+                const atLimit = !isActive && myReactionCount >= 5;
+                return (
+                  <button
+                    key={emoji}
+                    onClick={() => !atLimit && toggleReaction(emoji)}
+                    className={`reaction-btn ${isActive ? 'reaction-btn-active' : ''} ${atLimit ? 'reaction-btn-disabled' : ''}`}
+                    title={atLimit ? 'Max 5 reactions per song' : ''}
+                  >
+                    <span className="reaction-emoji">{emoji}</span>
+                    {count > 0 && <span className="reaction-count">{count}</span>}
+                  </button>
+                );
+              })}
           </div>
         </div>
 
