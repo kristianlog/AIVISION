@@ -54,6 +54,10 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
   // Confetti
   const [showConfetti, setShowConfetti] = useState(false);
 
+  // Lazy background video — defer loading to save data
+  const bgVideoRef = useRef(null);
+  const [videoReady, setVideoReady] = useState(false);
+
   const hasAudio = !!song.audio_url;
 
   // Flag colors for dynamic effects
@@ -293,6 +297,38 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
       audio.removeEventListener('ended', onEnded);
     };
   }, [hasTimingData, sortedTimings, lines.length]);
+
+  // Lazy background video: skip on Save-Data / slow connections, defer load, abort on unmount
+  useEffect(() => {
+    if (!videoUrl) return;
+
+    // Respect Save-Data header and slow connections
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn && (conn.saveData || conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g')) {
+      return;
+    }
+
+    // Defer video load so the modal paints fast first
+    const timer = setTimeout(() => {
+      const video = bgVideoRef.current;
+      if (video) {
+        video.src = videoUrl;
+        video.load();
+        setVideoReady(true);
+      }
+    }, 600);
+
+    return () => {
+      clearTimeout(timer);
+      // Abort any in-progress download on unmount
+      const video = bgVideoRef.current;
+      if (video) {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      }
+    };
+  }, [videoUrl]);
 
   // Auto-scroll to active line
   useEffect(() => {
@@ -553,15 +589,16 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
           <span />
         </div>
 
-        {/* Background video */}
+        {/* Background video — lazy loaded, aborted on close */}
         {videoUrl && (
-          <div className="detail-bg-video">
+          <div className={`detail-bg-video ${videoReady ? 'detail-bg-video-ready' : ''}`}>
             <video
-              src={videoUrl}
+              ref={bgVideoRef}
               autoPlay
               muted
               loop
               playsInline
+              preload="none"
               className="detail-bg-video-el"
               style={videoPosition ? { objectPosition: `${videoPosition.posX}% ${videoPosition.posY}%` } : undefined}
             />
