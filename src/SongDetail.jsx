@@ -333,24 +333,46 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
   }, [duration]);
 
   const handleProgressDrag = useCallback((e) => {
-    e.preventDefault();
-    const startX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-    seekFromEvent(startX);
+    if (e.type === 'mousedown') {
+      e.preventDefault();
+      seekFromEvent(e.clientX);
+      const onMove = (ev) => seekFromEvent(ev.clientX);
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      return;
+    }
+
+    // Touch: wait to see if it's a horizontal drag before capturing
+    const startX = e.touches[0].clientX;
+    const startY = e.touches[0].clientY;
+    let captured = false;
 
     const onMove = (ev) => {
-      const x = ev.type === 'touchmove' ? ev.touches[0].clientX : ev.clientX;
-      seekFromEvent(x);
+      const dx = Math.abs(ev.touches[0].clientX - startX);
+      const dy = Math.abs(ev.touches[0].clientY - startY);
+      if (!captured) {
+        if (dy > dx) {
+          // Vertical scroll — bail out, let browser handle
+          cleanup();
+          return;
+        }
+        if (dx > 5) captured = true;
+      }
+      if (captured) {
+        ev.preventDefault();
+        seekFromEvent(ev.touches[0].clientX);
+      }
     };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+    const cleanup = () => {
       window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('touchend', onUp);
+      window.removeEventListener('touchend', cleanup);
     };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    window.addEventListener('touchmove', onMove);
-    window.addEventListener('touchend', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', cleanup);
   }, [seekFromEvent]);
 
   const seekToLine = useCallback((lineIndex) => {
@@ -476,13 +498,61 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
 
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // Swipe-down-to-dismiss on mobile
+  const modalRef = useRef(null);
+  const handleSwipeStart = useCallback((e) => {
+    const touch = e.touches[0];
+    const startY = touch.clientY;
+    const modal = modalRef.current;
+    if (!modal) return;
+
+    let dragging = false;
+    let dy = 0;
+
+    const onMove = (ev) => {
+      dy = ev.touches[0].clientY - startY;
+      // Only allow downward drag when modal is scrolled to top
+      if (modal.scrollTop > 0 || dy < 0) {
+        dragging = false;
+        modal.style.transform = '';
+        return;
+      }
+      if (dy > 10) dragging = true;
+      if (dragging) {
+        ev.preventDefault();
+        modal.style.transform = `translateY(${dy}px)`;
+        modal.style.transition = 'none';
+      }
+    };
+    const onEnd = () => {
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      if (dragging && dy > 120) {
+        modal.style.transition = 'transform 0.2s ease';
+        modal.style.transform = 'translateY(100%)';
+        setTimeout(onClose, 200);
+      } else {
+        modal.style.transition = 'transform 0.2s ease';
+        modal.style.transform = '';
+      }
+    };
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+  }, [onClose]);
+
   return (
     <div className="detail-overlay" onClick={onClose}>
       <div
+        ref={modalRef}
         className={`detail-modal ${isPlaying && flagColors ? 'detail-modal-playing' : ''}`}
         onClick={(e) => e.stopPropagation()}
         style={flagColorStyle}
       >
+        {/* Swipe handle for mobile */}
+        <div className="detail-swipe-handle" onTouchStart={handleSwipeStart}>
+          <span />
+        </div>
+
         {/* Background video */}
         {videoUrl && (
           <div className="detail-bg-video">
