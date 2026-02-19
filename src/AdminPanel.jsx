@@ -57,7 +57,8 @@ const AdminPanel = ({ onBack, userProfile }) => {
   const [draggedSongId, setDraggedSongId] = useState(null);
   const [previewSong, setPreviewSong] = useState(null);
 
-  // Merge built-in songs with custom songs (custom overrides built-in by ID), sorted alphabetically by country
+  // Merge built-in songs with custom songs (custom overrides built-in by ID)
+  // Respects sort_order when set, falls back to alphabetical by country
   const allSongs = useMemo(() => {
     const customMap = new Map(songs.map(s => [s.id, s]));
     const merged = SONGS.map(s => customMap.has(s.id)
@@ -65,7 +66,12 @@ const AdminPanel = ({ onBack, userProfile }) => {
       : { ...s, _isBuiltIn: true });
     const customOnly = songs.filter(s => !SONGS.some(b => b.id === s.id))
       .map(s => ({ ...s, _isBuiltIn: false }));
-    return [...merged, ...customOnly].sort((a, b) => a.country.localeCompare(b.country));
+    return [...merged, ...customOnly].sort((a, b) => {
+      const aOrder = a.sort_order ?? Infinity;
+      const bOrder = b.sort_order ?? Infinity;
+      if (aOrder !== Infinity || bOrder !== Infinity) return aOrder - bOrder;
+      return a.country.localeCompare(b.country);
+    });
   }, [songs]);
 
   // Song readiness: a song is "ready" if it has artist, title, lyrics, and audio
@@ -141,25 +147,27 @@ const AdminPanel = ({ onBack, userProfile }) => {
     const [moved] = list.splice(fromIdx, 1);
     list.splice(toIdx, 0, moved);
 
-    // Update sort_order for reordered songs
-    const updates = list.map((s, i) => ({ id: s.id, sort_order: i }));
+    // Build sort_order map for all songs in the reordered list
+    const orderMap = new Map(list.map((s, i) => [s.id, i]));
     setDraggedSongId(null);
 
+    // Optimistic update — apply sort_order to local state immediately
+    setSongs(prev => prev.map(s => orderMap.has(s.id) ? { ...s, sort_order: orderMap.get(s.id) } : s));
+
     try {
-      for (const u of updates) {
+      for (const s of list) {
         await supabase.from('custom_songs').upsert({
-          id: u.id,
-          country: list.find(s => s.id === u.id).country,
-          flag: list.find(s => s.id === u.id).flag,
-          artist: list.find(s => s.id === u.id).artist,
-          title: list.find(s => s.id === u.id).title,
-          genre: list.find(s => s.id === u.id).genre,
-          lyrics: list.find(s => s.id === u.id).lyrics || '',
-          sort_order: u.sort_order,
+          id: s.id,
+          country: s.country,
+          flag: s.flag,
+          artist: s.artist,
+          title: s.title,
+          genre: s.genre,
+          lyrics: s.lyrics || '',
+          sort_order: orderMap.get(s.id),
         }, { onConflict: 'id' });
       }
       showMessage('Order saved!');
-      loadData();
     } catch (err) {
       showMessage('Failed to save order', 'error');
     }
@@ -181,8 +189,14 @@ const AdminPanel = ({ onBack, userProfile }) => {
         published: newVal,
       }, { onConflict: 'id' });
       if (error) throw error;
+      // Optimistic update instead of full reload
+      setSongs(prev => {
+        const exists = prev.some(s => s.id === song.id);
+        if (exists) return prev.map(s => s.id === song.id ? { ...s, published: newVal } : s);
+        // Built-in song with no custom_songs record yet — add it
+        return [...prev, { ...song, published: newVal, _isBuiltIn: undefined }];
+      });
       showMessage(newVal ? 'Song published — visible to voters' : 'Song hidden from voters');
-      loadData();
     } catch (err) {
       showMessage(err.message || 'Failed to update', 'error');
     }
@@ -232,6 +246,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
         const { data: songsData, error } = await supabase
           .from('custom_songs')
           .select('*')
+          .order('sort_order', { ascending: true, nullsFirst: false })
           .order('created_at', { ascending: false });
         if (!error) setSongs(songsData || []);
       } catch { /* table may not exist yet */ }
@@ -442,14 +457,41 @@ const AdminPanel = ({ onBack, userProfile }) => {
     }
   };
 
-  const handleDeleteSong = async (songId) => {
-    if (!confirm('Delete this song?')) return;
-    try {
-      await supabase.from('custom_songs').delete().eq('id', songId);
-      showMessage('Song deleted');
-      loadData();
-    } catch (err) {
-      showMessage(err.message, 'error');
+  const handleDeleteSong = async (song) => {
+    if (song._isBuiltIn) {
+      if (!confirm('This is a built-in song and cannot be fully deleted. Hide it from voters instead?')) return;
+      // For built-in songs, hide them via published: false
+      try {
+        const { error } = await supabase.from('custom_songs').upsert({
+          id: song.id,
+          country: song.country,
+          flag: song.flag,
+          artist: song.artist,
+          title: song.title,
+          genre: song.genre,
+          lyrics: song.lyrics || '',
+          audio_url: song.audio_url || null,
+          published: false,
+        }, { onConflict: 'id' });
+        if (error) throw error;
+        setSongs(prev => {
+          const exists = prev.some(s => s.id === song.id);
+          if (exists) return prev.map(s => s.id === song.id ? { ...s, published: false } : s);
+          return [...prev, { ...song, published: false, _isBuiltIn: undefined }];
+        });
+        showMessage('Built-in song hidden from voters');
+      } catch (err) {
+        showMessage(err.message || 'Failed to hide song', 'error');
+      }
+    } else {
+      if (!confirm('Delete this song?')) return;
+      try {
+        await supabase.from('custom_songs').delete().eq('id', song.id);
+        setSongs(prev => prev.filter(s => s.id !== song.id));
+        showMessage('Song deleted');
+      } catch (err) {
+        showMessage(err.message, 'error');
+      }
     }
   };
 
@@ -1007,7 +1049,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
                 draggable
                 onDragStart={() => handleDragStart(song.id)}
                 onDragOver={e => e.preventDefault()}
-                onDrop={() => handleDrop(song.id)}
+                onDrop={e => { e.preventDefault(); handleDrop(song.id); }}
                 style={isHidden ? { opacity: 0.5 } : undefined}
               >
                 <span className="admin-song-drag" title="Drag to reorder"><GripVertical size={16} /></span>
@@ -1064,11 +1106,9 @@ const AdminPanel = ({ onBack, userProfile }) => {
                       <Clock size={16} />
                     </button>
                   )}
-                  {!song._isBuiltIn && (
-                    <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
-                      <Trash2 size={16} />
-                    </button>
-                  )}
+                  <button onClick={() => handleDeleteSong(song)} className="admin-delete-btn" title={song._isBuiltIn ? 'Hide built-in song' : 'Delete song'}>
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
               );
@@ -1090,7 +1130,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
                 draggable
                 onDragStart={() => handleDragStart(song.id)}
                 onDragOver={e => e.preventDefault()}
-                onDrop={() => handleDrop(song.id)}
+                onDrop={e => { e.preventDefault(); handleDrop(song.id); }}
                 style={isHidden ? { opacity: 0.5 } : undefined}
               >
                 <span className="admin-song-drag" title="Drag to reorder"><GripVertical size={16} /></span>
@@ -1138,11 +1178,9 @@ const AdminPanel = ({ onBack, userProfile }) => {
                       <Clock size={16} />
                     </button>
                   )}
-                  {!song._isBuiltIn && (
-                    <button onClick={() => handleDeleteSong(song.id)} className="admin-delete-btn" title="Delete song">
-                      <Trash2 size={16} />
-                    </button>
-                  )}
+                  <button onClick={() => handleDeleteSong(song)} className="admin-delete-btn" title={song._isBuiltIn ? 'Hide built-in song' : 'Delete song'}>
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
               );
