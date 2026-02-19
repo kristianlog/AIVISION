@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Play, Pause, SkipBack, Save, X, Trash2, Undo2, Type, AlignLeft, ChevronLeft, Minus, Plus } from 'lucide-react';
+import { Play, Pause, SkipBack, Save, X, Trash2, Undo2, Type, AlignLeft, ChevronLeft, Minus, Plus, Check } from 'lucide-react';
 
 const formatTime = (seconds) => {
   if (!seconds && seconds !== 0) return '';
@@ -18,7 +18,6 @@ const formatTimeShort = (seconds) => {
 
 const parseTime = (str) => {
   if (!str) return null;
-  // Support M:SS.s format
   const dotMatch = str.match(/^(\d+):(\d+)\.(\d+)$/);
   if (dotMatch) {
     const mins = parseInt(dotMatch[1], 10);
@@ -40,8 +39,8 @@ const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5];
 
 const LyricsTimingEditor = ({ song, onSave, onClose }) => {
   // ── State ──
-  const [timings, setTimings] = useState({});          // line-level: { lineIndex: time }
-  const [wordTimings, setWordTimings] = useState({});   // word-level: { lineIndex: [{ word, time }] }
+  const [timings, setTimings] = useState({});
+  const [wordTimings, setWordTimings] = useState({});
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -49,10 +48,11 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [stampHistory, setStampHistory] = useState([]);
   const [lastStampedLine, setLastStampedLine] = useState(null);
-  const [mode, setMode] = useState('line');             // 'line' | 'word'
-  const [wordSyncLine, setWordSyncLine] = useState(null); // line index being word-synced
-  const [nextWordIndex, setNextWordIndex] = useState(0);  // next word to stamp in word mode
-  const [lastStampedWord, setLastStampedWord] = useState(null); // for flash animation
+  const [mode, setMode] = useState('line');
+  const [wordSyncLine, setWordSyncLine] = useState(null);
+  const [nextWordIndex, setNextWordIndex] = useState(0);
+  const [lastStampedWord, setLastStampedWord] = useState(null);
+  const [expandedSlider, setExpandedSlider] = useState(null); // lineIndex of expanded slider
   const audioRef = useRef(null);
   const linesRef = useRef(null);
   const wordContainerRef = useRef(null);
@@ -97,8 +97,9 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
     return -1;
   }, [lines, timings]);
 
-  // ── Active line based on playback ──
+  // ── Active line based on playback (for live preview) ──
   const activeLine = useMemo(() => {
+    if (!isPlaying && currentTime === 0) return -1;
     let active = -1;
     const entries = Object.entries(timings)
       .map(([line, time]) => ({ line: parseInt(line, 10), time: typeof time === 'number' ? time : parseFloat(time) }))
@@ -109,7 +110,7 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
       else break;
     }
     return active;
-  }, [timings, currentTime]);
+  }, [timings, currentTime, isPlaying]);
 
   // ── Active word in word-sync view ──
   const activeWordInView = useMemo(() => {
@@ -124,25 +125,19 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
     return active;
   }, [wordSyncLine, wordTimings, currentTime]);
 
-  // ── Audio with requestAnimationFrame for smoother updates ──
+  // ── Audio with requestAnimationFrame ──
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-
     const onLoadedMetadata = () => setDuration(audio.duration);
     const onEnded = () => { setIsPlaying(false); cancelAnimationFrame(animFrameRef.current); };
-
     audio.addEventListener('loadedmetadata', onLoadedMetadata);
     audio.addEventListener('ended', onEnded);
-
     const tick = () => {
-      if (audio && !audio.paused) {
-        setCurrentTime(audio.currentTime);
-      }
+      if (audio && !audio.paused) setCurrentTime(audio.currentTime);
       animFrameRef.current = requestAnimationFrame(tick);
     };
     animFrameRef.current = requestAnimationFrame(tick);
-
     return () => {
       audio.removeEventListener('loadedmetadata', onLoadedMetadata);
       audio.removeEventListener('ended', onEnded);
@@ -150,7 +145,6 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
     };
   }, []);
 
-  // ── Playback speed ──
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = playbackSpeed;
   }, [playbackSpeed]);
@@ -191,6 +185,26 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
     setTimeout(() => setLastStampedLine(null), 600);
   }, [timings]);
 
+  // ── Nudge line timing ±0.25s ──
+  const nudgeLineTiming = useCallback((lineIndex, delta) => {
+    setTimings(prev => {
+      const current = prev[lineIndex];
+      if (current === undefined) return prev;
+      const t = typeof current === 'number' ? current : parseFloat(current);
+      if (isNaN(t)) return prev;
+      return { ...prev, [lineIndex]: Math.max(0, Math.round((t + delta) * 100) / 100) };
+    });
+  }, []);
+
+  // ── Slider adjust line timing (range ±2s, 0.25 steps) ──
+  const sliderAdjustLine = useCallback((lineIndex, newValue) => {
+    setTimings(prev => {
+      const current = prev[lineIndex];
+      if (current === undefined) return prev;
+      return { ...prev, [lineIndex]: Math.max(0, newValue) };
+    });
+  }, []);
+
   // ── Word stamping ──
   const stampWord = useCallback((lineIndex, wordIndex) => {
     const audio = audioRef.current;
@@ -199,41 +213,30 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
     const line = lines.find(l => l.index === lineIndex);
     if (!line) return;
     const word = line.words[wordIndex];
-
     setStampHistory(prev => [...prev, {
       type: 'word', lineIndex, wordIndex,
       prevWords: wordTimings[lineIndex] ? [...wordTimings[lineIndex]] : undefined,
     }]);
-
     setWordTimings(prev => {
       const existing = prev[lineIndex] ? [...prev[lineIndex]] : [];
-      // Replace or add at wordIndex
       while (existing.length <= wordIndex) existing.push({ word: line.words[existing.length], time: null });
       existing[wordIndex] = { word, time };
       return { ...prev, [lineIndex]: existing };
     });
-
-    // Also set line timing to first word if not set
     if (wordIndex === 0) {
       setTimings(prev => {
         if (prev[lineIndex] === undefined) return { ...prev, [lineIndex]: time };
         return prev;
       });
     }
-
     setLastStampedWord({ line: lineIndex, word: wordIndex });
     setTimeout(() => setLastStampedWord(null), 400);
-
-    // Advance to next word
     if (wordIndex + 1 < line.words.length) {
       setNextWordIndex(wordIndex + 1);
     } else {
-      // Line complete — move to next line
       setNextWordIndex(0);
       const nextLine = lines.find(l => l.index > lineIndex && l.isTimeable);
-      if (nextLine) {
-        setWordSyncLine(nextLine.index);
-      }
+      if (nextLine) setWordSyncLine(nextLine.index);
     }
   }, [lines, wordTimings, timings]);
 
@@ -252,26 +255,18 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
     if (stampHistory.length === 0) return;
     const last = stampHistory[stampHistory.length - 1];
     setStampHistory(prev => prev.slice(0, -1));
-
     if (last.type === 'word') {
       setWordTimings(prev => {
-        if (last.prevWords !== undefined) {
-          return { ...prev, [last.lineIndex]: last.prevWords };
-        }
-        const next = { ...prev };
-        delete next[last.lineIndex];
-        return next;
+        if (last.prevWords !== undefined) return { ...prev, [last.lineIndex]: last.prevWords };
+        const next = { ...prev }; delete next[last.lineIndex]; return next;
       });
       setWordSyncLine(last.lineIndex);
       setNextWordIndex(last.wordIndex);
     } else {
       setTimings(prev => {
         const next = { ...prev };
-        if (last.prevTime !== undefined) {
-          next[last.lineIndex] = last.prevTime;
-        } else {
-          delete next[last.lineIndex];
-        }
+        if (last.prevTime !== undefined) next[last.lineIndex] = last.prevTime;
+        else delete next[last.lineIndex];
         return next;
       });
     }
@@ -281,40 +276,26 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'INPUT') return;
-
       if (e.key === ' ' || e.code === 'Space') {
-        e.preventDefault();
-        togglePlay();
+        e.preventDefault(); togglePlay();
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (mode === 'word' && wordSyncLine !== null) {
           const line = lines.find(l => l.index === wordSyncLine);
-          if (line && nextWordIndex < line.words.length) {
-            stampWord(wordSyncLine, nextWordIndex);
-          }
-        } else if (nextUntimedLine >= 0) {
-          stampLine(nextUntimedLine);
-        }
+          if (line && nextWordIndex < line.words.length) stampWord(wordSyncLine, nextWordIndex);
+        } else if (nextUntimedLine >= 0) stampLine(nextUntimedLine);
       } else if (e.key === 'Backspace') {
-        e.preventDefault();
-        undoLastStamp();
+        e.preventDefault(); undoLastStamp();
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         const audio = audioRef.current;
-        if (audio) {
-          audio.currentTime = Math.max(0, audio.currentTime - (e.shiftKey ? 0.5 : 3));
-          setCurrentTime(audio.currentTime);
-        }
+        if (audio) { audio.currentTime = Math.max(0, audio.currentTime - (e.shiftKey ? 0.5 : 3)); setCurrentTime(audio.currentTime); }
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         const audio = audioRef.current;
-        if (audio) {
-          audio.currentTime = Math.min(duration, audio.currentTime + (e.shiftKey ? 0.5 : 3));
-          setCurrentTime(audio.currentTime);
-        }
+        if (audio) { audio.currentTime = Math.min(duration, audio.currentTime + (e.shiftKey ? 0.5 : 3)); setCurrentTime(audio.currentTime); }
       } else if (e.key === 'Escape' && wordSyncLine !== null) {
-        e.preventDefault();
-        setWordSyncLine(null);
+        e.preventDefault(); setWordSyncLine(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -340,7 +321,6 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
         const lineIdx = parseInt(line, 10);
         const t = typeof time === 'number' ? time : parseFloat(time);
         const entry = { line: lineIdx, time: isNaN(t) ? 0 : t };
-        // Attach word timings if available
         if (wordTimings[lineIdx] && wordTimings[lineIdx].length > 0) {
           entry.words = wordTimings[lineIdx].filter(w => w.time !== null);
         }
@@ -354,17 +334,12 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
 
   const clearAll = () => {
     if (confirm('Clear all timestamps?')) {
-      setTimings({});
-      setWordTimings({});
-      setStampHistory([]);
-      setWordSyncLine(null);
+      setTimings({}); setWordTimings({}); setStampHistory([]); setWordSyncLine(null); setExpandedSlider(null);
     }
   };
 
-  // ── Enter word sync for a line ──
   const enterWordSync = (lineIndex) => {
     setWordSyncLine(lineIndex);
-    // Find first untimed word
     const wt = wordTimings[lineIndex];
     if (wt) {
       const firstUntimed = wt.findIndex(w => w.time === null);
@@ -374,7 +349,6 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
     }
   };
 
-  // ── Seek to a word's time ──
   const seekToTime = (time) => {
     const audio = audioRef.current;
     if (!audio || time === null || time === undefined) return;
@@ -386,32 +360,36 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
   const timedCount = Object.keys(timings).length;
   const timeableCount = lines.filter(l => l.isTimeable).length;
   const progressPct = timeableCount > 0 ? Math.round((timedCount / timeableCount) * 100) : 0;
-
   const totalWords = lines.filter(l => l.isTimeable).reduce((acc, l) => acc + l.words.length, 0);
   const timedWords = Object.values(wordTimings).reduce((acc, wt) => acc + wt.filter(w => w.time !== null).length, 0);
   const wordPct = totalWords > 0 ? Math.round((timedWords / totalWords) * 100) : 0;
 
-  // ── Check if a line has word timings ──
   const lineHasWords = (lineIndex) => {
     const wt = wordTimings[lineIndex];
     return wt && wt.some(w => w.time !== null);
   };
 
+  // ── Slider base value for a line (original saved time) ──
+  const getSliderBase = (lineIndex) => {
+    const t = timings[lineIndex];
+    return typeof t === 'number' ? t : parseFloat(t) || 0;
+  };
+
   return (
     <div className="admin-form-overlay" onClick={onClose}>
       <div className="admin-form-modal timing-editor-modal" onClick={e => e.stopPropagation()}>
-        <div className="admin-form-header">
-          <h3 style={{ fontSize: '1rem' }}>Sync: {song.title}</h3>
-          <button onClick={onClose} className="admin-form-close"><X size={20} /></button>
+        <div className="admin-form-header" style={{ paddingBottom: '8px' }}>
+          <h3 style={{ fontSize: '0.95rem', margin: 0 }}>Sync: {song.title}</h3>
+          <button onClick={onClose} className="admin-form-close"><X size={18} /></button>
         </div>
 
         <audio ref={audioRef} src={song.audio_url} preload="metadata" />
 
-        {/* Audio controls */}
+        {/* Audio controls — compact */}
         <div className="timing-audio-controls">
-          <button onClick={restart} className="lyrics-ctrl-btn" title="Restart"><SkipBack size={16} /></button>
+          <button onClick={restart} className="lyrics-ctrl-btn" title="Restart"><SkipBack size={14} /></button>
           <button onClick={togglePlay} className="lyrics-play-btn" title={isPlaying ? 'Pause' : 'Play'}>
-            {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+            {isPlaying ? <Pause size={16} /> : <Play size={16} />}
           </button>
           <div className="timing-progress-bar" onClick={seekTo}>
             <div className="timing-progress-fill" style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }} />
@@ -419,68 +397,49 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
           <span className="timing-current-time">{formatTime(currentTime)}</span>
         </div>
 
-        {/* Toolbar: mode toggle + speed + undo */}
+        {/* Toolbar — compact single row */}
         <div className="timing-toolbar">
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '3px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div className="timing-mode-toggle">
-              <button
-                className={`timing-mode-btn ${mode === 'line' ? 'timing-mode-active' : ''}`}
-                onClick={() => { setMode('line'); setWordSyncLine(null); }}
-                title="Line-by-line timing"
-              >
-                <AlignLeft size={13} /> Lines
+              <button className={`timing-mode-btn ${mode === 'line' ? 'timing-mode-active' : ''}`}
+                onClick={() => { setMode('line'); setWordSyncLine(null); }}>
+                <AlignLeft size={11} /> Lines
               </button>
-              <button
-                className={`timing-mode-btn ${mode === 'word' ? 'timing-mode-active' : ''}`}
-                onClick={() => setMode('word')}
-                title="Word-by-word timing"
-              >
-                <Type size={13} /> Words
+              <button className={`timing-mode-btn ${mode === 'word' ? 'timing-mode-active' : ''}`}
+                onClick={() => setMode('word')}>
+                <Type size={11} /> Words
               </button>
             </div>
             <div className="timing-speed-controls">
               {SPEED_OPTIONS.map(speed => (
-                <button
-                  key={speed}
+                <button key={speed}
                   className={`timing-speed-btn ${playbackSpeed === speed ? 'timing-speed-active' : ''}`}
-                  onClick={() => setPlaybackSpeed(speed)}
-                >
+                  onClick={() => setPlaybackSpeed(speed)}>
                   {speed}x
                 </button>
               ))}
             </div>
           </div>
-          <button
-            onClick={undoLastStamp}
-            disabled={stampHistory.length === 0}
-            className="timing-undo-btn"
-            title="Undo last stamp (Backspace)"
-          >
-            <Undo2 size={14} /> Undo
+          <button onClick={undoLastStamp} disabled={stampHistory.length === 0}
+            className="timing-undo-btn" title="Undo (Backspace)">
+            <Undo2 size={12} /> Undo
           </button>
         </div>
 
-        {/* Progress */}
+        {/* Progress bar */}
         <div className="timing-progress-info">
           <div className="timing-progress-bar-mini">
             <div className="timing-progress-fill-mini" style={{ width: `${mode === 'word' ? wordPct : progressPct}%` }} />
           </div>
-          <p className="timing-progress-text">
+          <div className="timing-progress-text">
             {mode === 'word'
-              ? `${timedWords} / ${totalWords} words synced (${wordPct}%)`
-              : `${timedCount} / ${timeableCount} lines synced (${progressPct}%)`
+              ? `${timedWords}/${totalWords} words (${wordPct}%)`
+              : `${timedCount}/${timeableCount} lines (${progressPct}%)`
             }
-          </p>
-        </div>
-
-        {/* Keyboard shortcuts */}
-        <div className="timing-shortcuts">
-          <span><kbd>Space</kbd> Play</span>
-          <span><kbd>Enter</kbd> Stamp</span>
-          <span><kbd>Backspace</kbd> Undo</span>
-          <span><kbd>&larr;&rarr;</kbd> ±3s</span>
-          <span><kbd>Shift+&larr;&rarr;</kbd> ±0.5s</span>
-          {mode === 'word' && <span><kbd>Esc</kbd> Exit word view</span>}
+            <span className="timing-shortcuts-inline">
+              <kbd>Space</kbd> play <kbd>Enter</kbd> stamp <kbd>←→</kbd> seek <kbd>⇧←→</kbd> fine
+            </span>
+          </div>
         </div>
 
         {/* ── Word Sync Detail View ── */}
@@ -492,12 +451,8 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
           return (
             <div className="word-sync-panel">
               <div className="word-sync-header">
-                <button
-                  onClick={() => setWordSyncLine(null)}
-                  className="word-sync-back"
-                  title="Back to line list"
-                >
-                  <ChevronLeft size={16} /> Back
+                <button onClick={() => setWordSyncLine(null)} className="word-sync-back" title="Back">
+                  <ChevronLeft size={14} /> Back
                 </button>
                 <span className="word-sync-line-label">Line {line.index + 1}</span>
                 <span className="word-sync-line-preview">{line.text}</span>
@@ -510,23 +465,17 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
                   const justStamped = lastStampedWord && lastStampedWord.line === wordSyncLine && lastStampedWord.word === wi;
 
                   return (
-                    <div
-                      key={wi}
-                      className={`word-sync-item ${isActive ? 'word-sync-active' : ''} ${isNext ? 'word-sync-next' : ''} ${justStamped ? 'word-sync-stamped' : ''} ${hasTime ? 'word-sync-timed' : ''}`}
-                    >
-                      <span
-                        className="word-sync-text"
-                        onClick={() => { if (!hasTime) stampWord(wordSyncLine, wi); else seekToTime(wt[wi].time); }}
-                      >
+                    <div key={wi}
+                      className={`word-sync-item ${isActive ? 'word-sync-active' : ''} ${isNext ? 'word-sync-next' : ''} ${justStamped ? 'word-sync-stamped' : ''} ${hasTime ? 'word-sync-timed' : ''}`}>
+                      <span className="word-sync-text"
+                        onClick={() => { if (!hasTime) stampWord(wordSyncLine, wi); else seekToTime(wt[wi].time); }}>
                         {word}
                       </span>
                       {hasTime && (
                         <div className="word-sync-time-row">
-                          <button className="word-nudge-btn" onClick={() => nudgeWordTime(wordSyncLine, wi, -0.05)} title="-50ms"><Minus size={10} /></button>
-                          <span className="word-sync-time" onClick={() => seekToTime(wt[wi].time)}>
-                            {formatTime(wt[wi].time)}
-                          </span>
-                          <button className="word-nudge-btn" onClick={() => nudgeWordTime(wordSyncLine, wi, 0.05)} title="+50ms"><Plus size={10} /></button>
+                          <button className="word-nudge-btn" onClick={() => nudgeWordTime(wordSyncLine, wi, -0.05)} title="-50ms"><Minus size={9} /></button>
+                          <span className="word-sync-time" onClick={() => seekToTime(wt[wi].time)}>{formatTime(wt[wi].time)}</span>
+                          <button className="word-nudge-btn" onClick={() => nudgeWordTime(wordSyncLine, wi, 0.05)} title="+50ms"><Plus size={9} /></button>
                         </div>
                       )}
                     </div>
@@ -534,7 +483,7 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
                 })}
               </div>
               <p className="word-sync-hint">
-                Press <kbd>Enter</kbd> or click untimed words to stamp. Click timed words to seek.
+                <kbd>Enter</kbd> stamp next &middot; Click word to stamp/seek &middot; <kbd>Esc</kbd> back
               </p>
             </div>
           );
@@ -548,9 +497,8 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
 
               if (line.isSection) {
                 return (
-                  <div key={line.index} className="timing-line-row">
+                  <div key={line.index} className="timing-line-row timing-line-section-row">
                     <span className="timing-line-section">{line.text}</span>
-                    <span className="timing-line-skipped">&mdash;</span>
                   </div>
                 );
               }
@@ -560,65 +508,87 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
               const isActive = line.index === activeLine;
               const isNext = line.index === nextUntimedLine;
               const justStamped = line.index === lastStampedLine;
+              const isSliderOpen = expandedSlider === line.index;
+
+              // Color classes: timed=green, active=purple, next=yellow, untimed=dim
+              let rowClass = 'timing-line-row';
+              if (isActive) rowClass += ' timing-line-playing';
+              else if (hasTime) rowClass += ' timing-line-done';
+              if (isNext && mode === 'line') rowClass += ' timing-line-next';
+              if (justStamped) rowClass += ' timing-line-stamped';
 
               return (
-                <div
-                  key={line.index}
-                  className={`timing-line-row ${isActive ? 'timing-line-active' : ''} ${isNext && mode === 'line' ? 'timing-line-next' : ''} ${justStamped ? 'timing-line-stamped' : ''}`}
-                >
+                <div key={line.index} className={rowClass}>
                   <div className="timing-line-content">
-                    <span className="timing-line-text">{line.text}</span>
+                    {/* Status indicator */}
+                    {hasTime && !isActive && (
+                      <span className="timing-line-check"><Check size={11} strokeWidth={3} /></span>
+                    )}
+                    {isActive && (
+                      <span className="timing-line-playing-dot" />
+                    )}
+
+                    {/* Text — live preview glow on active */}
+                    <span className={`timing-line-text ${isActive ? 'timing-line-text-playing' : ''}`}>{line.text}</span>
+
                     <div className="timing-line-controls">
-                      {hasWords && (
-                        <span className="timing-word-badge" title="Word timings set">W</span>
-                      )}
-                      {mode === 'line' && (
+                      {hasWords && <span className="timing-word-badge" title="Word timings">W</span>}
+
+                      {mode === 'line' && hasTime && (
                         <>
-                          <input
-                            type="text"
-                            className="timing-input"
-                            value={hasTime ? formatTimeShort(timings[line.index]) : ''}
-                            placeholder="0:00"
-                            onChange={(e) => setTimings(prev => ({ ...prev, [line.index]: e.target.value }))}
-                            onBlur={(e) => {
-                              const parsed = parseTime(e.target.value);
-                              if (parsed !== null) {
-                                setTimings(prev => ({ ...prev, [line.index]: parsed }));
-                              } else if (e.target.value === '') {
-                                setTimings(prev => { const next = { ...prev }; delete next[line.index]; return next; });
-                              }
-                            }}
-                          />
-                          <button type="button" onClick={() => stampLine(line.index)} className="timing-stamp-btn" title="Stamp current time">
-                            Stamp
+                          <button className="timing-nudge-sm" onClick={() => nudgeLineTiming(line.index, -0.25)} title="-0.25s"><Minus size={9} /></button>
+                          <span className="timing-time-badge" onClick={() => { seekToTime(timings[line.index]); }}
+                            title="Click to seek">{formatTimeShort(timings[line.index])}</span>
+                          <button className="timing-nudge-sm" onClick={() => nudgeLineTiming(line.index, 0.25)} title="+0.25s"><Plus size={9} /></button>
+                          <button className="timing-slider-toggle" onClick={() => setExpandedSlider(isSliderOpen ? null : line.index)}
+                            title="Fine adjust slider">
+                            ◆
                           </button>
                         </>
                       )}
+                      {mode === 'line' && !hasTime && (
+                        <button type="button" onClick={() => stampLine(line.index)} className="timing-stamp-btn-sm" title="Stamp">
+                          Stamp
+                        </button>
+                      )}
                       {mode === 'word' && (
-                        <button
-                          type="button"
-                          onClick={() => enterWordSync(line.index)}
-                          className="timing-stamp-btn timing-word-btn"
-                          title="Sync words for this line"
-                        >
-                          <Type size={12} /> Words
+                        <button type="button" onClick={() => enterWordSync(line.index)}
+                          className="timing-stamp-btn-sm timing-word-btn">
+                          <Type size={10} /> Words
                         </button>
                       )}
                     </div>
                   </div>
+                  {/* Slider row — ±2s range, 0.25s steps */}
+                  {isSliderOpen && hasTime && (
+                    <div className="timing-slider-row">
+                      <span className="timing-slider-label">-2s</span>
+                      <input
+                        type="range"
+                        className="timing-range-slider"
+                        min={Math.max(0, getSliderBase(line.index) - 2)}
+                        max={getSliderBase(line.index) + 2}
+                        step={0.25}
+                        value={typeof timings[line.index] === 'number' ? timings[line.index] : parseFloat(timings[line.index]) || 0}
+                        onChange={(e) => sliderAdjustLine(line.index, parseFloat(e.target.value))}
+                      />
+                      <span className="timing-slider-label">+2s</span>
+                      <span className="timing-slider-value">{formatTime(timings[line.index])}</span>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* Actions */}
+        {/* Actions — compact */}
         <div className="timing-actions">
-          <button onClick={handleSave} disabled={saving} className="admin-submit-btn">
-            <Save size={18} /> {saving ? 'Saving...' : 'Save Timing'}
+          <button onClick={handleSave} disabled={saving} className="admin-submit-btn" style={{ padding: '8px 16px', fontSize: '0.82rem' }}>
+            <Save size={15} /> {saving ? 'Saving...' : 'Save'}
           </button>
-          <button onClick={clearAll} className="timing-clear-btn">
-            <Trash2 size={16} /> Clear All
+          <button onClick={clearAll} className="timing-clear-btn" style={{ padding: '8px 14px', fontSize: '0.8rem' }}>
+            <Trash2 size={14} /> Clear
           </button>
         </div>
       </div>
