@@ -53,6 +53,7 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
   const [nextWordIndex, setNextWordIndex] = useState(0);
   const [lastStampedWord, setLastStampedWord] = useState(null);
   const [expandedSlider, setExpandedSlider] = useState(null); // lineIndex of expanded slider
+  const [sliderBaseTime, setSliderBaseTime] = useState(null); // anchor time when slider opened
   const audioRef = useRef(null);
   const linesRef = useRef(null);
   const wordContainerRef = useRef(null);
@@ -334,7 +335,7 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
 
   const clearAll = () => {
     if (confirm('Clear all timestamps?')) {
-      setTimings({}); setWordTimings({}); setStampHistory([]); setWordSyncLine(null); setExpandedSlider(null);
+      setTimings({}); setWordTimings({}); setStampHistory([]); setWordSyncLine(null); setExpandedSlider(null); setSliderBaseTime(null);
     }
   };
 
@@ -367,12 +368,6 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
   const lineHasWords = (lineIndex) => {
     const wt = wordTimings[lineIndex];
     return wt && wt.some(w => w.time !== null);
-  };
-
-  // ── Slider base value for a line (original saved time) ──
-  const getSliderBase = (lineIndex) => {
-    const t = timings[lineIndex];
-    return typeof t === 'number' ? t : parseFloat(t) || 0;
   };
 
   return (
@@ -540,8 +535,16 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
                           <span className="timing-time-badge" onClick={() => { seekToTime(timings[line.index]); }}
                             title="Click to seek">{formatTimeShort(timings[line.index])}</span>
                           <button className="timing-nudge-sm" onClick={() => nudgeLineTiming(line.index, 0.25)} title="+0.25s"><Plus size={9} /></button>
-                          <button className="timing-slider-toggle" onClick={() => setExpandedSlider(isSliderOpen ? null : line.index)}
-                            title="Fine adjust slider">
+                          <button className="timing-slider-toggle" onClick={() => {
+                            if (isSliderOpen) {
+                              setExpandedSlider(null);
+                              setSliderBaseTime(null);
+                            } else {
+                              setExpandedSlider(line.index);
+                              const t = timings[line.index];
+                              setSliderBaseTime(typeof t === 'number' ? t : parseFloat(t) || 0);
+                            }
+                          }} title="Fine adjust slider">
                             ◆
                           </button>
                         </>
@@ -560,14 +563,14 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
                     </div>
                   </div>
                   {/* Slider row — ±2s range, 0.25s steps */}
-                  {isSliderOpen && hasTime && (
+                  {isSliderOpen && hasTime && sliderBaseTime !== null && (
                     <div className="timing-slider-row">
                       <span className="timing-slider-label">-2s</span>
                       <input
                         type="range"
                         className="timing-range-slider"
-                        min={Math.max(0, getSliderBase(line.index) - 2)}
-                        max={getSliderBase(line.index) + 2}
+                        min={Math.max(0, sliderBaseTime - 2)}
+                        max={sliderBaseTime + 2}
                         step={0.25}
                         value={typeof timings[line.index] === 'number' ? timings[line.index] : parseFloat(timings[line.index]) || 0}
                         onChange={(e) => sliderAdjustLine(line.index, parseFloat(e.target.value))}
