@@ -1576,10 +1576,100 @@ input:focus {
   border-radius: 3px;
   transition: width 0.1s linear;
 }
+.timing-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.timing-speed-controls {
+  display: flex;
+  gap: 4px;
+}
+.timing-speed-btn {
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: auto;
+  margin: 0;
+  transition: all 0.15s ease;
+}
+.timing-speed-btn:hover {
+  background: rgba(139, 92, 246, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+}
+.timing-speed-active {
+  background: rgba(139, 92, 246, 0.25) !important;
+  border-color: rgba(139, 92, 246, 0.4);
+  color: #c4b5fd !important;
+}
+.timing-undo-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: auto;
+  margin: 0;
+  transition: all 0.15s ease;
+}
+.timing-undo-btn:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+}
+.timing-undo-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.timing-progress-info {
+  margin-bottom: 8px;
+}
+.timing-progress-bar-mini {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.timing-progress-fill-mini {
+  height: 100%;
+  background: linear-gradient(90deg, #8b5cf6, #22c55e);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.timing-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 0.7rem;
+  color: rgba(196, 181, 253, 0.4);
+}
+.timing-shortcuts kbd {
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  color: rgba(196, 181, 253, 0.6);
+  margin-right: 3px;
+}
 .timing-progress-text {
   font-size: 0.8rem;
   color: rgba(196, 181, 253, 0.5);
-  margin: 0 0 10px;
+  margin: 0;
 }
 .timing-progress-text kbd {
   background: rgba(139, 92, 246, 0.2);
@@ -1588,6 +1678,13 @@ input:focus {
   border-radius: 4px;
   font-size: 0.75rem;
   color: #c4b5fd;
+}
+@keyframes stamp-flash {
+  0% { background: rgba(34, 197, 94, 0.35); border-color: rgba(34, 197, 94, 0.5); }
+  100% { background: transparent; border-color: transparent; }
+}
+.timing-line-stamped {
+  animation: stamp-flash 0.6s ease-out;
 }
 .timing-lines-container {
   max-height: 400px;
@@ -2281,7 +2378,8 @@ input:focus {
   font-weight: 600;
   font-size: 0.8rem;
   margin: 12px 0 6px;
-  transition: all 0.3s ease;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: scale(1);
 }
 
 .lyrics-section-label:first-child {
@@ -2289,33 +2387,55 @@ input:focus {
 }
 
 .lyrics-sync-line {
+  position: relative;
   color: rgba(255, 255, 255, 0.3);
   font-size: 0.95rem;
   margin: 4px 0;
   line-height: 1.7;
-  transition: all 0.4s ease;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 6px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  transform: scale(1) translateX(0);
 }
 
 .lyrics-sync-line:hover {
   background: rgba(255, 255, 255, 0.05);
 }
 
+.lyrics-line-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.15), rgba(236, 72, 153, 0.1));
+  border-radius: 8px;
+  transition: width 0.15s linear;
+  pointer-events: none;
+}
+
+.lyrics-line-text-inner {
+  position: relative;
+  z-index: 1;
+}
+
 .lyrics-line-active {
   color: white !important;
   font-weight: 600;
-  transform: scale(1.02);
-  text-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+  transform: scale(1.04) translateX(4px);
+  text-shadow: 0 0 24px rgba(139, 92, 246, 0.6), 0 0 48px rgba(139, 92, 246, 0.2);
+  background: rgba(139, 92, 246, 0.08);
 }
 
 .lyrics-line-active.lyrics-section-label {
   color: #a78bfa !important;
+  transform: scale(1.02);
 }
 
 .lyrics-line-past {
   color: rgba(167, 139, 250, 0.5) !important;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .lyrics-line-past.lyrics-section-label {

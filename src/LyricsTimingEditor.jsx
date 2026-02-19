@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Play, Pause, SkipBack, Save, X, Trash2 } from 'lucide-react';
+import { Play, Pause, SkipBack, Save, X, Trash2, Undo2 } from 'lucide-react';
 
 const formatTime = (seconds) => {
   if (!seconds && seconds !== 0) return '';
@@ -20,12 +20,17 @@ const parseTime = (str) => {
   return isNaN(num) ? null : num;
 };
 
+const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5];
+
 const LyricsTimingEditor = ({ song, onSave, onClose }) => {
   const [timings, setTimings] = useState({});
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [stampHistory, setStampHistory] = useState([]);
+  const [lastStampedLine, setLastStampedLine] = useState(null);
   const audioRef = useRef(null);
   const linesRef = useRef(null);
 
@@ -92,7 +97,14 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
     };
   }, []);
 
-  const togglePlay = () => {
+  // Apply playback speed
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackSpeed;
+    }
+  }, [playbackSpeed]);
+
+  const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
     if (isPlaying) {
@@ -101,7 +113,7 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
       audio.play();
     }
     setIsPlaying(!isPlaying);
-  };
+  }, [isPlaying]);
 
   const restart = () => {
     const audio = audioRef.current;
@@ -125,20 +137,64 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
     const audio = audioRef.current;
     if (!audio) return;
     const time = Math.round(audio.currentTime * 10) / 10;
+    // Save to undo history
+    setStampHistory(prev => [...prev, { lineIndex, prevTime: timings[lineIndex] }]);
     setTimings(prev => ({ ...prev, [lineIndex]: time }));
-  }, []);
+    setLastStampedLine(lineIndex);
+    // Clear flash after animation
+    setTimeout(() => setLastStampedLine(null), 600);
+  }, [timings]);
 
-  // Keyboard: Enter stamps the next un-timed line
+  // Undo last stamp
+  const undoLastStamp = useCallback(() => {
+    if (stampHistory.length === 0) return;
+    const last = stampHistory[stampHistory.length - 1];
+    setStampHistory(prev => prev.slice(0, -1));
+    setTimings(prev => {
+      const next = { ...prev };
+      if (last.prevTime !== undefined) {
+        next[last.lineIndex] = last.prevTime;
+      } else {
+        delete next[last.lineIndex];
+      }
+      return next;
+    });
+  }, [stampHistory]);
+
+  // Keyboard shortcuts: Space=play/pause, Enter=stamp, Backspace=undo, arrow keys=seek
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Enter' && nextUntimedLine >= 0) {
+      // Don't capture if typing in an input
+      if (e.target.tagName === 'INPUT') return;
+
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.key === 'Enter' && nextUntimedLine >= 0) {
         e.preventDefault();
         stampLine(nextUntimedLine);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        undoLastStamp();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const audio = audioRef.current;
+        if (audio) {
+          audio.currentTime = Math.max(0, audio.currentTime - 3);
+          setCurrentTime(audio.currentTime);
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const audio = audioRef.current;
+        if (audio) {
+          audio.currentTime = Math.min(duration, audio.currentTime + 3);
+          setCurrentTime(audio.currentTime);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextUntimedLine, stampLine]);
+  }, [nextUntimedLine, stampLine, togglePlay, undoLastStamp, duration]);
 
   // Auto-scroll to active line
   useEffect(() => {
@@ -161,11 +217,13 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
   const clearAll = () => {
     if (confirm('Clear all timestamps?')) {
       setTimings({});
+      setStampHistory([]);
     }
   };
 
   const timedCount = Object.keys(timings).length;
   const timeableCount = lines.filter(l => l.isTimeable).length;
+  const progressPct = timeableCount > 0 ? Math.round((timedCount / timeableCount) * 100) : 0;
 
   return (
     <div className="admin-form-overlay" onClick={onClose}>
@@ -199,10 +257,46 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
           </span>
         </div>
 
+        {/* Speed + undo controls */}
+        <div className="timing-toolbar">
+          <div className="timing-speed-controls">
+            {SPEED_OPTIONS.map(speed => (
+              <button
+                key={speed}
+                className={`timing-speed-btn ${playbackSpeed === speed ? 'timing-speed-active' : ''}`}
+                onClick={() => setPlaybackSpeed(speed)}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={undoLastStamp}
+            disabled={stampHistory.length === 0}
+            className="timing-undo-btn"
+            title="Undo last stamp (Backspace)"
+          >
+            <Undo2 size={14} /> Undo
+          </button>
+        </div>
+
         {/* Progress indicator */}
-        <p className="timing-progress-text">
-          {timedCount} / {timeableCount} lines timed — Press <kbd>Enter</kbd> to stamp next line
-        </p>
+        <div className="timing-progress-info">
+          <div className="timing-progress-bar-mini">
+            <div className="timing-progress-fill-mini" style={{ width: `${progressPct}%` }} />
+          </div>
+          <p className="timing-progress-text">
+            {timedCount} / {timeableCount} lines timed ({progressPct}%)
+          </p>
+        </div>
+
+        {/* Keyboard shortcut hints */}
+        <div className="timing-shortcuts">
+          <span><kbd>Space</kbd> Play/Pause</span>
+          <span><kbd>Enter</kbd> Stamp</span>
+          <span><kbd>Backspace</kbd> Undo</span>
+          <span><kbd>&larr;</kbd><kbd>&rarr;</kbd> Seek ±3s</span>
+        </div>
 
         {/* Lyrics lines */}
         <div className="timing-lines-container" ref={linesRef}>
@@ -215,7 +309,7 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
               return (
                 <div key={line.index} className="timing-line-row">
                   <span className="timing-line-section">{line.text}</span>
-                  <span className="timing-line-skipped">—</span>
+                  <span className="timing-line-skipped">&mdash;</span>
                 </div>
               );
             }
@@ -223,11 +317,12 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
             const hasTime = timings[line.index] !== undefined;
             const isActive = line.index === activeLine;
             const isNext = line.index === nextUntimedLine;
+            const justStamped = line.index === lastStampedLine;
 
             return (
               <div
                 key={line.index}
-                className={`timing-line-row ${isActive ? 'timing-line-active' : ''} ${isNext ? 'timing-line-next' : ''}`}
+                className={`timing-line-row ${isActive ? 'timing-line-active' : ''} ${isNext ? 'timing-line-next' : ''} ${justStamped ? 'timing-line-stamped' : ''}`}
               >
                 <div className="timing-line-content">
                   <span className="timing-line-text">{line.text}</span>
@@ -239,7 +334,6 @@ const LyricsTimingEditor = ({ song, onSave, onClose }) => {
                       placeholder="0:00"
                       onChange={(e) => {
                         const val = e.target.value;
-                        // Allow typing, parse on blur
                         setTimings(prev => ({ ...prev, [line.index]: val }));
                       }}
                       onBlur={(e) => {

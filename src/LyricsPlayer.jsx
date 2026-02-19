@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Play, Pause, SkipBack } from 'lucide-react';
 
 const LyricsPlayer = ({ lyrics, audioUrl, lyricsTiming }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentLine, setCurrentLine] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [lineProgress, setLineProgress] = useState(0);
   const audioRef = useRef(null);
   const lyricsContainerRef = useRef(null);
   const intervalRef = useRef(null);
@@ -26,6 +27,16 @@ const LyricsPlayer = ({ lyrics, audioUrl, lyricsTiming }) => {
     return [...lyricsTiming].sort((a, b) => a.time - b.time);
   }, [lyricsTiming, hasTimingData]);
 
+  // Build a map from line index → time for click-to-seek
+  const lineTimeMap = useMemo(() => {
+    if (!hasTimingData) return {};
+    const map = {};
+    for (const entry of sortedTimings) {
+      map[entry.line] = entry.time;
+    }
+    return map;
+  }, [sortedTimings, hasTimingData]);
+
   // Auto-scroll lyrics based on audio progress or timer
   useEffect(() => {
     if (isPlaying && !audioUrl) {
@@ -36,11 +47,6 @@ const LyricsPlayer = ({ lyrics, audioUrl, lyricsTiming }) => {
           if (next >= lines.length) {
             setIsPlaying(false);
             return 0;
-          }
-          // Skip empty lines and section headers faster
-          const line = lines[next];
-          if (line && (line.isEmpty || line.isSection)) {
-            return next; // These will advance quickly on next tick
           }
           return next;
         });
@@ -74,18 +80,32 @@ const LyricsPlayer = ({ lyrics, audioUrl, lyricsTiming }) => {
       if (hasTimingData && sortedTimings.length > 0) {
         // Use real timing data: find the last line whose timestamp <= currentTime
         let activeLine = 0;
-        for (const entry of sortedTimings) {
-          if (entry.time <= audio.currentTime) {
-            activeLine = entry.line;
+        let activeTime = 0;
+        let nextTime = audio.duration;
+        for (let i = 0; i < sortedTimings.length; i++) {
+          if (sortedTimings[i].time <= audio.currentTime) {
+            activeLine = sortedTimings[i].line;
+            activeTime = sortedTimings[i].time;
+            nextTime = i + 1 < sortedTimings.length ? sortedTimings[i + 1].time : audio.duration;
           } else {
             break;
           }
         }
         setCurrentLine(activeLine);
+
+        // Calculate intra-line progress
+        const lineDuration = nextTime - activeTime;
+        if (lineDuration > 0) {
+          const elapsed = audio.currentTime - activeTime;
+          setLineProgress(Math.min(Math.max(elapsed / lineDuration, 0), 1));
+        } else {
+          setLineProgress(0);
+        }
       } else {
         // Fallback: distribute lyrics evenly across audio duration
         const lineIndex = Math.floor((audio.currentTime / audio.duration) * lines.length);
         setCurrentLine(Math.min(lineIndex, lines.length - 1));
+        setLineProgress(0);
       }
     };
 
@@ -93,6 +113,7 @@ const LyricsPlayer = ({ lyrics, audioUrl, lyricsTiming }) => {
       setIsPlaying(false);
       setCurrentLine(0);
       setProgress(0);
+      setLineProgress(0);
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -101,7 +122,7 @@ const LyricsPlayer = ({ lyrics, audioUrl, lyricsTiming }) => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [lines.length]);
+  }, [lines.length, hasTimingData, sortedTimings]);
 
   // Update progress for non-audio mode
   useEffect(() => {
@@ -124,12 +145,27 @@ const LyricsPlayer = ({ lyrics, audioUrl, lyricsTiming }) => {
   const restart = () => {
     setCurrentLine(0);
     setProgress(0);
+    setLineProgress(0);
     setIsPlaying(false);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
   };
+
+  // Click-to-seek: jump audio to a line's timestamp
+  const handleLineClick = useCallback((lineIndex) => {
+    if (audioRef.current && hasTimingData && lineTimeMap[lineIndex] !== undefined) {
+      audioRef.current.currentTime = lineTimeMap[lineIndex];
+      setCurrentLine(lineIndex);
+      if (!isPlaying) {
+        audioRef.current.play();
+        setIsPlaying(true);
+      }
+    } else {
+      setCurrentLine(lineIndex);
+    }
+  }, [hasTimingData, lineTimeMap, isPlaying]);
 
   if (!lyrics || lines.length === 0) return null;
 
@@ -175,9 +211,15 @@ const LyricsPlayer = ({ lyrics, audioUrl, lyricsTiming }) => {
             <p
               key={i}
               className={`lyrics-sync-line ${isActive ? 'lyrics-line-active' : ''} ${isPast ? 'lyrics-line-past' : ''}`}
-              onClick={() => setCurrentLine(i)}
+              onClick={() => handleLineClick(i)}
             >
-              {line.text}
+              {isActive && hasTimingData && (
+                <span
+                  className="lyrics-line-fill"
+                  style={{ width: `${lineProgress * 100}%` }}
+                />
+              )}
+              <span className="lyrics-line-text-inner">{line.text}</span>
             </p>
           );
         })}
