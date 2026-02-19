@@ -19,6 +19,54 @@ body {
 
 #root {
   min-height: 100vh;
+  position: relative;
+}
+
+#root > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Decorative Background Blobs ──────────────────────── */
+#root::before,
+#root::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+  filter: blur(100px);
+}
+
+#root::before {
+  width: 500px;
+  height: 500px;
+  background: var(--color-primary);
+  top: -10%;
+  left: -10%;
+  animation: blobFloat1 18s ease-in-out infinite;
+}
+
+#root::after {
+  width: 450px;
+  height: 450px;
+  background: var(--color-secondary);
+  bottom: -5%;
+  right: -10%;
+  animation: blobFloat2 22s ease-in-out infinite;
+}
+
+@keyframes blobFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(60px, 40px) scale(1.1); }
+  66% { transform: translate(-30px, 70px) scale(0.95); }
+}
+
+@keyframes blobFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-50px, -30px) scale(1.05); }
+  66% { transform: translate(40px, -60px) scale(0.9); }
 }
 
 *, *::before, *::after {
@@ -222,6 +270,8 @@ input:focus {
   max-width: 900px;
   margin: 0 auto;
   animation: fadeIn 0.4s ease;
+  position: relative;
+  z-index: 1;
 }
 
 .ev-hero {
@@ -232,14 +282,15 @@ input:focus {
 .ev-title {
   font-size: 2.5rem;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary), #38bdf8);
-  background-size: 200% auto;
+  background: linear-gradient(135deg, #f5d060, #e8b828, #fff1a8, #d4a017, #f5d060);
+  background-size: 300% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   animation: shimmer 4s linear infinite;
   margin: 0 0 4px;
   letter-spacing: -0.02em;
+  filter: drop-shadow(0 0 20px rgba(245, 208, 96, 0.3));
 }
 
 .ev-subtitle {
