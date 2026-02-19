@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react';
-import { Music, BarChart3, Heart, RotateCcw, Search, X as XIcon, Award, Trophy, Flame, User, UserPlus, UserCheck, UserX, Pencil, Check, Clock } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef, useRef } from 'react';
+import { Music, BarChart3, Heart, RotateCcw, Search, X as XIcon, Award, Trophy, Flame, User, UserPlus, UserCheck, UserX, Pencil, Check, Clock, ChevronDown } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { useTheme } from './ThemeContext';
 import SONGS from './songs';
@@ -46,11 +46,24 @@ const EurovisionVoting = forwardRef(({ userProfile }, ref) => {
   const [showUndo, setShowUndo] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterGenre, setFilterGenre] = useState('all');
+  const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
+  const genreDropdownRef = useRef(null);
   const [songsLoading, setSongsLoading] = useState(true);
 
   // Voting deadline
   const [votingDeadline, setVotingDeadline] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
+
+  // Close genre dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (genreDropdownRef.current && !genreDropdownRef.current.contains(e.target)) {
+        setGenreDropdownOpen(false);
+      }
+    };
+    if (genreDropdownOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [genreDropdownOpen]);
 
   // Global toast messages
   const [toastMessage, setToastMessage] = useState(null);
@@ -485,7 +498,7 @@ const EurovisionVoting = forwardRef(({ userProfile }, ref) => {
 
     // Genre filter
     if (filterGenre !== 'all') {
-      result = result.filter(s => s.genre.toLowerCase() === filterGenre.toLowerCase());
+      result = result.filter(s => s.genre.toLowerCase().split(',').map(g => g.trim()).includes(filterGenre.toLowerCase()));
     }
 
     // Search query (by country, title, artist, genre)
@@ -504,7 +517,7 @@ const EurovisionVoting = forwardRef(({ userProfile }, ref) => {
 
   // Get unique genres for filter dropdown
   const genres = useMemo(() => {
-    const uniqueGenres = [...new Set(allSongs.map(s => s.genre))];
+    const uniqueGenres = [...new Set(allSongs.flatMap(s => s.genre.split(',').map(g => g.trim())))];
     return uniqueGenres.sort();
   }, [allSongs]);
 
@@ -675,16 +688,37 @@ const EurovisionVoting = forwardRef(({ userProfile }, ref) => {
                 </button>
               )}
             </div>
-            <select
-              value={filterGenre}
-              onChange={(e) => setFilterGenre(e.target.value)}
-              className="ev-genre-filter"
-            >
-              <option value="all">All Genres</option>
-              {genres.map(genre => (
-                <option key={genre} value={genre}>{genre}</option>
-              ))}
-            </select>
+            <div className="ev-genre-dropdown" ref={genreDropdownRef}>
+              <button
+                type="button"
+                className={`ev-genre-toggle ${genreDropdownOpen ? 'ev-genre-toggle-open' : ''} ${filterGenre !== 'all' ? 'ev-genre-toggle-active' : ''}`}
+                onClick={() => setGenreDropdownOpen(prev => !prev)}
+              >
+                <span>{filterGenre === 'all' ? 'All Genres' : filterGenre}</span>
+                <ChevronDown size={16} className={`ev-genre-chevron ${genreDropdownOpen ? 'ev-genre-chevron-open' : ''}`} />
+              </button>
+              {genreDropdownOpen && (
+                <div className="ev-genre-menu">
+                  <button
+                    type="button"
+                    className={`ev-genre-option ${filterGenre === 'all' ? 'ev-genre-option-active' : ''}`}
+                    onClick={() => { setFilterGenre('all'); setGenreDropdownOpen(false); }}
+                  >
+                    All Genres
+                  </button>
+                  {genres.map(genre => (
+                    <button
+                      key={genre}
+                      type="button"
+                      className={`ev-genre-option ${filterGenre === genre ? 'ev-genre-option-active' : ''}`}
+                      onClick={() => { setFilterGenre(genre); setGenreDropdownOpen(false); }}
+                    >
+                      {genre}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {songsLoading ? (

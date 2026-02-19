@@ -330,11 +330,17 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
     };
   }, [videoUrl]);
 
-  // Auto-scroll to active line
+  // Auto-scroll to active line — only within the lyrics container, never the whole modal
   useEffect(() => {
     if (currentLine >= 0 && lyricsRef.current && isPlaying) {
-      const el = lyricsRef.current.querySelector('.lyrics-line-active');
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const container = lyricsRef.current;
+      const el = container.querySelector('.lyrics-line-active');
+      if (!el) return;
+      // Only scroll if the lyrics container itself is scrollable
+      if (container.scrollHeight > container.clientHeight) {
+        const targetScroll = el.offsetTop - container.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
+        container.scrollTo({ top: Math.max(0, targetScroll), behavior: 'smooth' });
+      }
     }
   }, [currentLine, isPlaying]);
 
@@ -614,7 +620,11 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
           <div>
             <h2 className="detail-title">{song.title}</h2>
             <p className="detail-artist">{song.artist} &mdash; {song.country}</p>
-            <span className="detail-genre">{song.genre}</span>
+            <div className="detail-genres">
+              {song.genre.split(',').map((g, i) => (
+                <span key={i} className="detail-genre">{g.trim()}</span>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -644,7 +654,15 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
         {/* Karaoke button + Country Info button */}
         <div className="detail-action-bar">
           {hasAudio && song.lyrics && (
-            <button onClick={() => setShowKaraoke(true)} className="detail-karaoke-btn">
+            <button onClick={() => {
+              // Pause the song preview audio before opening karaoke
+              const audio = audioRef.current;
+              if (audio && !audio.paused) {
+                audio.pause();
+                setIsPlaying(false);
+              }
+              setShowKaraoke(true);
+            }} className="detail-karaoke-btn">
               <Mic2 size={16} />
               <span>Karaoke Mode</span>
             </button>

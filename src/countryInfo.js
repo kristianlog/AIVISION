@@ -96,6 +96,38 @@ const COUNTRY_INFO = {
     funFact: 'The Netherlands is a founding member and hosted the first Eurovision in 1956 in Hilversum.',
     famousActs: ['Duncan Laurence', 'Teach-In', 'Joost Klein'],
   },
+  andorra: {
+    capital: 'Andorra la Vella',
+    population: '80K',
+    eurovisionWins: 0,
+    firstEntry: 2004,
+    funFact: 'Andorra is one of the smallest countries to ever compete in Eurovision, and all their entries were performed in Catalan.',
+    famousActs: ['Marian van de Wal', 'Anonymous', 'Susanne Georgi'],
+  },
+  armenia: {
+    capital: 'Yerevan',
+    population: '3M',
+    eurovisionWins: 0,
+    firstEntry: 2006,
+    funFact: 'Armenia finished 4th in their debut year (2006) — one of the best debut results in Eurovision history.',
+    famousActs: ['Aram Mp3', 'Srbuk', 'Rosa Linn'],
+  },
+  australia: {
+    capital: 'Canberra',
+    population: '26M',
+    eurovisionWins: 0,
+    firstEntry: 2015,
+    funFact: 'Australia was invited as a special guest in 2015 due to the country\'s massive Eurovision fanbase, and has competed every year since.',
+    famousActs: ['Guy Sebastian', 'Dami Im', 'Electric Fields'],
+  },
+  denmark: {
+    capital: 'Copenhagen',
+    population: '5.9M',
+    eurovisionWins: 3,
+    firstEntry: 1957,
+    funFact: 'Denmark won Eurovision three times, including Emmelie de Forest\'s "Only Teardrops" in 2013 which became one of the contest\'s most streamed songs.',
+    famousActs: ['Emmelie de Forest', 'Olsen Brothers', 'Brødrene Olsen'],
+  },
 };
 
 export default COUNTRY_INFO;
