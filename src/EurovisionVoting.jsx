@@ -989,25 +989,6 @@ const EurovisionVoting = forwardRef(({ userProfile }, ref) => {
         </div>
       )}
 
-      {/* Mobile Bottom Navigation */}
-      <div className="mobile-bottom-nav">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`mobile-nav-btn ${activeTab === tab.id ? 'mobile-nav-active' : ''}`}
-            >
-              <Icon size={20} />
-              <span>{tab.label}</span>
-              {tab.id === 'votes' && votedCount > 0 && (
-                <span className="mobile-nav-badge">{votedCount}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 });
