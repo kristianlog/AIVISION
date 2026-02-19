@@ -9,7 +9,8 @@ import {
   ArrowLeft, Upload, Music, Video, Trash2, Plus, Save, X, Film,
   CheckCircle, AlertCircle, Loader2, Pencil, Clock,
   Users, Wrench, Download, Palette, Image, BarChart3, TrendingUp, Zap,
-  Search, Play, Pause, GripVertical, Eye, EyeOff
+  Search, Play, Pause, GripVertical, Eye, EyeOff,
+  ShieldBan, ShieldCheck, Activity, MessageSquare, RefreshCw
 } from 'lucide-react';
 
 // Country name → ISO 3166-1 alpha-2 code (for auto-flag)
@@ -224,6 +225,14 @@ const AdminPanel = ({ onBack, userProfile }) => {
   // Voting deadline
   const [votingDeadline, setVotingDeadline] = useState('');
 
+  // Comments & reactions moderation state
+  const [allComments, setAllComments] = useState([]);
+  const [allReactions, setAllReactions] = useState([]);
+  const [moderationTab, setModerationTab] = useState('comments'); // 'comments' | 'reactions'
+
+  // Activity log state
+  const [activityLog, setActivityLog] = useState([]);
+
   // Video upload state
   const [videoUploading, setVideoUploading] = useState({});
   const videoInputRefs = useRef({});
@@ -290,10 +299,128 @@ const AdminPanel = ({ onBack, userProfile }) => {
           .single();
         if (deadlineData?.value) setVotingDeadline(deadlineData.value);
       } catch { /* */ }
+
+      // Load comments for moderation
+      try {
+        const { data: commentsData, error } = await supabase
+          .from('song_comments')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error) setAllComments(commentsData || []);
+      } catch { /* table may not exist yet */ }
+
+      // Load reactions for moderation
+      try {
+        const { data: reactionsData, error } = await supabase
+          .from('song_reactions')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error) setAllReactions(reactionsData || []);
+      } catch { /* table may not exist yet */ }
     } catch (err) {
       console.error('Error loading admin data:', err);
     }
     setLoading(false);
+  };
+
+  // ── User Ban/Suspend ──
+  const handleToggleSuspend = async (userId, currentSuspended) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ suspended: !currentSuspended })
+        .eq('id', userId);
+      if (error) throw error;
+      setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, suspended: !currentSuspended } : u));
+      showMessage(!currentSuspended ? 'User suspended' : 'User unsuspended');
+    } catch (err) {
+      showMessage(err.message || 'Failed to update user', 'error');
+    }
+  };
+
+  // ── Activity Log (computed from loaded data) ──
+  const computedActivityLog = useMemo(() => {
+    const events = [];
+
+    // Votes as events
+    allVotes.forEach(v => {
+      const user = allUsers.find(u => u.id === v.user_id);
+      const song = allSongs.find(s => s.id === v.song_id);
+      events.push({
+        id: `vote-${v.user_id}-${v.song_id}`,
+        type: 'vote',
+        icon: '🗳️',
+        text: `${user?.name || 'Unknown'} voted ${v.score} pts for ${song?.flag || ''} ${song?.title || v.song_id}`,
+        timestamp: v.created_at,
+      });
+    });
+
+    // Comments as events
+    allComments.forEach(c => {
+      const user = allUsers.find(u => u.id === c.user_id);
+      const song = allSongs.find(s => s.id === c.song_id);
+      events.push({
+        id: `comment-${c.id}`,
+        type: 'comment',
+        icon: '💬',
+        text: `${user?.name || 'Unknown'} commented on ${song?.flag || ''} ${song?.title || c.song_id}`,
+        detail: c.content?.slice(0, 80),
+        timestamp: c.created_at,
+      });
+    });
+
+    // Reactions as events
+    allReactions.forEach(r => {
+      const user = allUsers.find(u => u.id === r.user_id);
+      const song = allSongs.find(s => s.id === r.song_id);
+      events.push({
+        id: `reaction-${r.id}`,
+        type: 'reaction',
+        icon: r.emoji || '❤️',
+        text: `${user?.name || 'Unknown'} reacted to ${song?.flag || ''} ${song?.title || r.song_id}`,
+        timestamp: r.created_at,
+      });
+    });
+
+    // User signups
+    allUsers.forEach(u => {
+      if (u.created_at) {
+        events.push({
+          id: `signup-${u.id}`,
+          type: 'signup',
+          icon: '👤',
+          text: `${u.name || u.email || 'Unknown'} joined`,
+          timestamp: u.created_at,
+        });
+      }
+    });
+
+    // Sort by most recent first
+    events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    return events;
+  }, [allVotes, allComments, allReactions, allUsers, allSongs]);
+
+  // ── Comment Moderation ──
+  const handleDeleteComment = async (commentId) => {
+    try {
+      const { error } = await supabase.from('song_comments').delete().eq('id', commentId);
+      if (error) throw error;
+      setAllComments(prev => prev.filter(c => c.id !== commentId));
+      showMessage('Comment deleted');
+    } catch (err) {
+      showMessage(err.message || 'Failed to delete comment', 'error');
+    }
+  };
+
+  const handleDeleteReaction = async (reactionId) => {
+    try {
+      const { error } = await supabase.from('song_reactions').delete().eq('id', reactionId);
+      if (error) throw error;
+      setAllReactions(prev => prev.filter(r => r.id !== reactionId));
+      showMessage('Reaction removed');
+    } catch (err) {
+      showMessage(err.message || 'Failed to delete reaction', 'error');
+    }
   };
 
   const formatFileSize = (bytes) => {
@@ -767,6 +894,8 @@ const AdminPanel = ({ onBack, userProfile }) => {
         {[
           { id: 'songs', icon: Music, label: 'Songs' },
           { id: 'users', icon: Users, label: 'Users' },
+          { id: 'moderation', icon: MessageSquare, label: 'Moderation' },
+          { id: 'activity', icon: Activity, label: 'Activity' },
           { id: 'settings', icon: Palette, label: 'Theme' },
           { id: 'tools', icon: Wrench, label: 'Tools' },
         ].map(tab => {
@@ -1326,7 +1455,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
             return (
               <div className="admin-users-list">
                 {userEntries.map(({ userId, votes, profile, totalPts, voteCount }) => (
-                  <div key={userId} className="admin-user-row">
+                  <div key={userId} className={`admin-user-row ${profile?.suspended ? 'admin-user-suspended' : ''}`}>
                     <div className="admin-user-avatar">
                       {profile?.avatar_url ? (
                         <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
@@ -1337,6 +1466,7 @@ const AdminPanel = ({ onBack, userProfile }) => {
                     <div className="admin-user-info">
                       <p className="admin-user-name">
                         {profile?.name || `User ${userId.slice(0, 8)}...`}
+                        {profile?.suspended && <span className="admin-user-badge-suspended">Suspended</span>}
                       </p>
                       {votes.length > 0 ? (
                         <div className="admin-user-votes">
@@ -1369,11 +1499,222 @@ const AdminPanel = ({ onBack, userProfile }) => {
                         <span className="admin-user-stat-label">Points</span>
                       </div>
                     </div>
+                    <button
+                      className={`admin-suspend-btn ${profile?.suspended ? 'admin-suspend-btn-active' : ''}`}
+                      onClick={() => handleToggleSuspend(userId, profile?.suspended)}
+                      title={profile?.suspended ? 'Unsuspend user' : 'Suspend user'}
+                    >
+                      {profile?.suspended ? <ShieldCheck size={16} /> : <ShieldBan size={16} />}
+                    </button>
                   </div>
                 ))}
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* Comments & Reactions Moderation */}
+      {activeSection === 'moderation' && (
+        <div className="admin-section">
+          <div className="admin-section-header">
+            <h2>Moderation</h2>
+            <p className="admin-section-desc">Review and manage user comments and reactions.</p>
+          </div>
+
+          {/* Sub-tabs */}
+          <div className="admin-mod-tabs">
+            <button
+              className={`admin-mod-tab ${moderationTab === 'comments' ? 'admin-mod-tab-active' : ''}`}
+              onClick={() => setModerationTab('comments')}
+            >
+              <MessageSquare size={15} />
+              Comments
+              {allComments.length > 0 && <span className="admin-mod-count">{allComments.length}</span>}
+            </button>
+            <button
+              className={`admin-mod-tab ${moderationTab === 'reactions' ? 'admin-mod-tab-active' : ''}`}
+              onClick={() => setModerationTab('reactions')}
+            >
+              <span style={{ fontSize: '0.9rem' }}>❤️</span>
+              Reactions
+              {allReactions.length > 0 && <span className="admin-mod-count">{allReactions.length}</span>}
+            </button>
+          </div>
+
+          {/* Comments list */}
+          {moderationTab === 'comments' && (
+            <>
+              {allComments.length === 0 ? (
+                <div className="ev-empty">
+                  <MessageSquare size={48} className="ev-empty-icon" />
+                  <p className="ev-empty-title">No comments yet</p>
+                  <p className="ev-empty-sub">User comments will appear here for moderation.</p>
+                </div>
+              ) : (
+                <div className="admin-mod-list">
+                  {allComments.map(comment => {
+                    const user = allUsers.find(u => u.id === comment.user_id);
+                    const song = allSongs.find(s => s.id === comment.song_id);
+                    return (
+                      <div key={comment.id} className="admin-mod-card">
+                        <div className="admin-mod-card-header">
+                          <div className="admin-user-avatar" style={{ width: 28, height: 28, fontSize: '0.75rem' }}>
+                            {user?.avatar_url ? (
+                              <img src={user.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                              (user?.name || '?').charAt(0).toUpperCase()
+                            )}
+                          </div>
+                          <span className="admin-mod-author">{user?.name || 'Unknown'}</span>
+                          <span className="admin-mod-separator">on</span>
+                          <span className="admin-mod-song">{song?.flag || ''} {song?.title || 'Unknown song'}</span>
+                          <span className="admin-mod-time">
+                            {comment.created_at ? new Date(comment.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                        </div>
+                        <p className="admin-mod-content">{comment.content}</p>
+                        <div className="admin-mod-actions">
+                          <button
+                            className="tools-action-btn tools-btn-danger"
+                            style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+                            onClick={() => setConfirmAction({ type: 'delete-comment', commentId: comment.id, preview: comment.content?.slice(0, 40) })}
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Reactions list */}
+          {moderationTab === 'reactions' && (
+            <>
+              {allReactions.length === 0 ? (
+                <div className="ev-empty">
+                  <span style={{ fontSize: 48 }}>❤️</span>
+                  <p className="ev-empty-title">No reactions yet</p>
+                  <p className="ev-empty-sub">User reactions will appear here.</p>
+                </div>
+              ) : (
+                <div className="admin-mod-list">
+                  {allReactions.map(reaction => {
+                    const user = allUsers.find(u => u.id === reaction.user_id);
+                    const song = allSongs.find(s => s.id === reaction.song_id);
+                    return (
+                      <div key={reaction.id} className="admin-mod-card admin-mod-card-compact">
+                        <span className="admin-mod-emoji">{reaction.emoji || '❤️'}</span>
+                        <div className="admin-user-avatar" style={{ width: 24, height: 24, fontSize: '0.7rem' }}>
+                          {user?.avatar_url ? (
+                            <img src={user.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                          ) : (
+                            (user?.name || '?').charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <span className="admin-mod-author" style={{ fontSize: '0.82rem' }}>{user?.name || 'Unknown'}</span>
+                        <span className="admin-mod-separator">on</span>
+                        <span className="admin-mod-song">{song?.flag || ''} {song?.title || 'Unknown'}</span>
+                        <span className="admin-mod-time">
+                          {reaction.created_at ? new Date(reaction.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''}
+                        </span>
+                        <button
+                          className="admin-mod-remove-btn"
+                          onClick={() => handleDeleteReaction(reaction.id)}
+                          title="Remove reaction"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Activity Log */}
+      {activeSection === 'activity' && (
+        <div className="admin-section">
+          <div className="admin-section-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h2>Activity Log</h2>
+              <p className="admin-section-desc">Live feed of user activity across the app.</p>
+            </div>
+            <button
+              className="tools-action-btn"
+              style={{ padding: '8px 14px', fontSize: '0.8rem' }}
+              onClick={loadData}
+            >
+              <RefreshCw size={14} /> Refresh
+            </button>
+          </div>
+
+          {/* Stats row */}
+          <div className="tools-stats" style={{ marginBottom: 20 }}>
+            <div className="tools-stat-card">
+              <div className="tools-stat-value">{computedActivityLog.filter(e => e.type === 'vote').length}</div>
+              <div className="tools-stat-label">Votes</div>
+            </div>
+            <div className="tools-stat-card">
+              <div className="tools-stat-value">{computedActivityLog.filter(e => e.type === 'comment').length}</div>
+              <div className="tools-stat-label">Comments</div>
+            </div>
+            <div className="tools-stat-card">
+              <div className="tools-stat-value">{computedActivityLog.filter(e => e.type === 'reaction').length}</div>
+              <div className="tools-stat-label">Reactions</div>
+            </div>
+            <div className="tools-stat-card">
+              <div className="tools-stat-value">{computedActivityLog.filter(e => e.type === 'signup').length}</div>
+              <div className="tools-stat-label">Signups</div>
+            </div>
+          </div>
+
+          {computedActivityLog.length === 0 ? (
+            <div className="ev-empty">
+              <Activity size={48} className="ev-empty-icon" />
+              <p className="ev-empty-title">No activity yet</p>
+              <p className="ev-empty-sub">User actions will appear here as they happen.</p>
+            </div>
+          ) : (
+            <div className="admin-activity-list">
+              {computedActivityLog.slice(0, 100).map((event, i) => {
+                const isFirst = i === 0;
+                const prevEvent = computedActivityLog[i - 1];
+                const eventDate = new Date(event.timestamp).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                const prevDate = prevEvent ? new Date(prevEvent.timestamp).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+                const showDateHeader = isFirst || eventDate !== prevDate;
+
+                return (
+                  <React.Fragment key={event.id}>
+                    {showDateHeader && (
+                      <div className="admin-activity-date-header">{eventDate}</div>
+                    )}
+                    <div className={`admin-activity-item admin-activity-${event.type}`}>
+                      <span className="admin-activity-icon">{event.icon}</span>
+                      <div className="admin-activity-body">
+                        <p className="admin-activity-text">{event.text}</p>
+                        {event.detail && <p className="admin-activity-detail">"{event.detail}"</p>}
+                      </div>
+                      <span className="admin-activity-time">
+                        {event.timestamp ? new Date(event.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
+                      </span>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+              {computedActivityLog.length > 100 && (
+                <p style={{ textAlign: 'center', color: 'rgba(196,181,253,0.4)', fontSize: '0.8rem', padding: 16 }}>
+                  Showing 100 of {computedActivityLog.length} events
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -2034,12 +2375,16 @@ const AdminPanel = ({ onBack, userProfile }) => {
             <p className="tools-confirm-title">
               {confirmAction === 'reset-votes' ? 'Reset All Votes?' :
                confirmAction === 'reset-ratings' ? 'Reset All Ratings?' :
-               `Delete votes for ${confirmAction.userName}?`}
+               confirmAction.type === 'delete-comment' ? 'Delete Comment?' :
+               confirmAction.type === 'delete-user-votes' ? `Delete votes for ${confirmAction.userName}?` :
+               'Confirm Action'}
             </p>
             <p className="tools-confirm-desc">
               {confirmAction === 'reset-votes' ? `This will permanently delete ${allVotes.length} votes. This action cannot be undone.` :
                confirmAction === 'reset-ratings' ? 'This will permanently delete all category ratings. This action cannot be undone.' :
-               `This will delete all votes cast by ${confirmAction.userName}.`}
+               confirmAction.type === 'delete-comment' ? `Delete this comment? "${confirmAction.preview}..."` :
+               confirmAction.type === 'delete-user-votes' ? `This will delete all votes cast by ${confirmAction.userName}.` :
+               'This action cannot be undone.'}
             </p>
             <div className="tools-confirm-actions">
               <button className="tools-confirm-cancel" onClick={() => setConfirmAction(null)}>Cancel</button>
@@ -2056,6 +2401,8 @@ const AdminPanel = ({ onBack, userProfile }) => {
                       const { error } = await supabase.from('ratings').delete().not('user_id', 'is', null);
                       if (error) throw error;
                       showMessage('All ratings have been reset');
+                    } else if (confirmAction.type === 'delete-comment') {
+                      await handleDeleteComment(confirmAction.commentId);
                     } else if (confirmAction.type === 'delete-user-votes') {
                       const { error } = await supabase.from('votes').delete().eq('user_id', confirmAction.userId);
                       if (error) throw error;
