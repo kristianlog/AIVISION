@@ -140,7 +140,7 @@ function App() {
     <div className={`user-header ${isLight ? 'user-header-light' : ''}`}>
       <div className="user-header-left">
         <div
-          onClick={() => { setShowAdmin(false); votingRef.current?.navigateToProfile(); }}
+          onClick={() => { if (!showAdmin) { votingRef.current?.navigateToProfile(); } }}
           title="View profile"
           className="user-header-avatar"
         >
@@ -156,7 +156,7 @@ function App() {
         </div>
         <div>
           <p
-            onClick={() => { setShowAdmin(false); votingRef.current?.navigateToProfile(); }}
+            onClick={() => { if (!showAdmin) { votingRef.current?.navigateToProfile(); } }}
             className="user-header-name"
             style={{ color: isLight ? '#1e293b' : 'white' }}
           >
