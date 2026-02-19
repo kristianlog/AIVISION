@@ -620,7 +620,11 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
           <div>
             <h2 className="detail-title">{song.title}</h2>
             <p className="detail-artist">{song.artist} &mdash; {song.country}</p>
-            <span className="detail-genre">{song.genre}</span>
+            <div className="detail-genres">
+              {song.genre.split(',').map((g, i) => (
+                <span key={i} className="detail-genre">{g.trim()}</span>
+              ))}
+            </div>
           </div>
         </div>
 

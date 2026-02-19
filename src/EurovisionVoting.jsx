@@ -485,7 +485,7 @@ const EurovisionVoting = forwardRef(({ userProfile }, ref) => {
 
     // Genre filter
     if (filterGenre !== 'all') {
-      result = result.filter(s => s.genre.toLowerCase() === filterGenre.toLowerCase());
+      result = result.filter(s => s.genre.toLowerCase().split(',').map(g => g.trim()).includes(filterGenre.toLowerCase()));
     }
 
     // Search query (by country, title, artist, genre)
@@ -504,7 +504,7 @@ const EurovisionVoting = forwardRef(({ userProfile }, ref) => {
 
   // Get unique genres for filter dropdown
   const genres = useMemo(() => {
-    const uniqueGenres = [...new Set(allSongs.map(s => s.genre))];
+    const uniqueGenres = [...new Set(allSongs.flatMap(s => s.genre.split(',').map(g => g.trim())))];
     return uniqueGenres.sort();
   }, [allSongs]);
 
