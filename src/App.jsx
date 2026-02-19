@@ -140,8 +140,8 @@ function App() {
     <div className={`user-header ${isLight ? 'user-header-light' : ''}`}>
       <div className="user-header-left">
         <div
-          onClick={() => { if (!showAdmin) { votingRef.current?.navigateToProfile(); } }}
-          title="View profile"
+          onClick={() => { if (showAdmin) { window.scrollTo({ top: 0, behavior: 'smooth' }); } else { votingRef.current?.navigateToProfile(); } }}
+          title={showAdmin ? 'Scroll to top' : 'View profile'}
           className="user-header-avatar"
         >
           {userProfile?.avatar_url ? (
@@ -156,7 +156,7 @@ function App() {
         </div>
         <div>
           <p
-            onClick={() => { if (!showAdmin) { votingRef.current?.navigateToProfile(); } }}
+            onClick={() => { if (showAdmin) { window.scrollTo({ top: 0, behavior: 'smooth' }); } else { votingRef.current?.navigateToProfile(); } }}
             className="user-header-name"
             style={{ color: isLight ? '#1e293b' : 'white' }}
           >

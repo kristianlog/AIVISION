@@ -1542,16 +1542,17 @@ input:focus {
 
 /* ─── Lyrics Timing Editor ─────────────────────────────── */
 .timing-editor-modal {
-  max-width: 680px;
+  max-width: 780px;
+  max-height: 90vh;
 }
 .timing-audio-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 10px 14px;
   background: rgba(0, 0, 0, 0.25);
-  border-radius: 12px;
-  margin-bottom: 10px;
+  border-radius: 10px;
+  margin-bottom: 8px;
 }
 .timing-current-time {
   font-family: 'SF Mono', 'Fira Code', monospace;
@@ -1580,8 +1581,8 @@ input:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 .timing-speed-controls {
   display: flex;
@@ -1634,7 +1635,7 @@ input:focus {
   cursor: not-allowed;
 }
 .timing-progress-info {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .timing-progress-bar-mini {
   height: 4px;
@@ -1652,10 +1653,10 @@ input:focus {
 .timing-shortcuts {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 12px;
-  font-size: 0.7rem;
-  color: rgba(196, 181, 253, 0.4);
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.68rem;
+  color: rgba(196, 181, 253, 0.35);
 }
 .timing-shortcuts kbd {
   background: rgba(139, 92, 246, 0.15);
@@ -1687,20 +1688,20 @@ input:focus {
   animation: stamp-flash 0.6s ease-out;
 }
 .timing-lines-container {
-  max-height: 400px;
+  max-height: 340px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 16px;
+  gap: 2px;
+  margin-bottom: 12px;
   padding-right: 4px;
 }
 .timing-line-spacer {
   height: 10px;
 }
 .timing-line-row {
-  padding: 10px 14px;
-  border-radius: 10px;
+  padding: 7px 12px;
+  border-radius: 8px;
   border: 1px solid transparent;
   transition: all 0.15s ease;
 }
@@ -1722,20 +1723,23 @@ input:focus {
 }
 .timing-line-content {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
 }
 .timing-line-text {
   color: rgba(255, 255, 255, 0.85);
-  font-size: 1rem;
-  line-height: 1.6;
+  font-size: 0.92rem;
+  line-height: 1.4;
   word-wrap: break-word;
   white-space: normal;
+  flex: 1;
+  min-width: 0;
 }
 .timing-line-controls {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
+  flex-shrink: 0;
 }
 .timing-line-section {
   flex: 1;
@@ -1804,6 +1808,226 @@ input:focus {
   cursor: pointer;
   width: auto;
   margin: 0;
+}
+
+/* ─── Mode Toggle ────────────────────────────────────── */
+.timing-mode-toggle {
+  display: flex;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.timing-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: auto;
+  margin: 0;
+  transition: all 0.15s ease;
+}
+.timing-mode-btn:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+.timing-mode-active {
+  background: rgba(139, 92, 246, 0.25) !important;
+  border-color: rgba(139, 92, 246, 0.4);
+  color: #c4b5fd !important;
+}
+
+/* ─── Word Badge ─────────────────────────────────────── */
+.timing-word-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #4ade80;
+  font-size: 0.6rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.timing-word-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ─── Word Sync Panel ────────────────────────────────── */
+.word-sync-panel {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.word-sync-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.word-sync-back {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: auto;
+  margin: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.word-sync-back:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+.word-sync-line-label {
+  color: rgba(167, 139, 250, 0.7);
+  font-size: 0.72rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.word-sync-line-preview {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.word-sync-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.word-sync-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.15s ease;
+  min-width: 50px;
+}
+.word-sync-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.word-sync-text {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+.word-sync-text:hover {
+  color: white;
+}
+.word-sync-timed {
+  border-color: rgba(34, 197, 94, 0.25);
+  background: rgba(34, 197, 94, 0.06);
+}
+.word-sync-timed .word-sync-text {
+  color: rgba(255, 255, 255, 0.85);
+}
+.word-sync-next {
+  border-color: rgba(234, 179, 8, 0.4) !important;
+  background: rgba(234, 179, 8, 0.1) !important;
+  box-shadow: 0 0 12px rgba(234, 179, 8, 0.1);
+}
+.word-sync-next .word-sync-text {
+  color: #fbbf24;
+  font-weight: 600;
+}
+.word-sync-active {
+  border-color: rgba(139, 92, 246, 0.5) !important;
+  background: rgba(139, 92, 246, 0.2) !important;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.15);
+}
+.word-sync-active .word-sync-text {
+  color: white;
+  font-weight: 600;
+}
+@keyframes word-stamp-flash {
+  0% { background: rgba(34, 197, 94, 0.4); border-color: rgba(34, 197, 94, 0.6); }
+  100% { background: rgba(34, 197, 94, 0.06); border-color: rgba(34, 197, 94, 0.25); }
+}
+.word-sync-stamped {
+  animation: word-stamp-flash 0.4s ease-out;
+}
+.word-sync-time-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.word-sync-time {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.65rem;
+  color: rgba(167, 139, 250, 0.6);
+  cursor: pointer;
+}
+.word-sync-time:hover {
+  color: #a78bfa;
+}
+.word-nudge-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  width: auto;
+  transition: all 0.1s ease;
+}
+.word-nudge-btn:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #c4b5fd;
+}
+.word-sync-hint {
+  margin: 10px 0 0;
+  font-size: 0.7rem;
+  color: rgba(196, 181, 253, 0.35);
+}
+.word-sync-hint kbd {
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  color: rgba(196, 181, 253, 0.5);
 }
 
 /* ─── Scrollbar ────────────────────────────────────────── */
@@ -2440,6 +2664,43 @@ input:focus {
 
 .lyrics-line-past.lyrics-section-label {
   color: rgba(167, 139, 250, 0.35) !important;
+}
+
+/* ─── Word-level lyrics highlighting ─────────────────── */
+.lyrics-words-container {
+  position: relative;
+  z-index: 1;
+  display: inline;
+}
+.lyrics-word-wrapper {
+  display: inline;
+}
+.lyrics-word {
+  position: relative;
+  display: inline;
+  transition: color 0.15s ease;
+}
+.lyrics-word-text {
+  position: relative;
+  z-index: 1;
+}
+.lyrics-word-past {
+  color: rgba(167, 139, 250, 0.9) !important;
+}
+.lyrics-word-active {
+  color: white !important;
+}
+.lyrics-word-fill {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #8b5cf6, #ec4899);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.lyrics-word-space {
+  display: inline;
 }
 
 /* Lyrics Toggle Button */
