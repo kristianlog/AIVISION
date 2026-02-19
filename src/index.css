@@ -673,6 +673,11 @@ input:focus {
   border-radius: 24px 24px 0 0;
   z-index: 0;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.detail-bg-video-ready {
+  opacity: 1;
 }
 .detail-bg-video::after {
   content: '';
