@@ -19,11 +19,12 @@
 ## Supabase
 
 - **URL**: `https://xvknylospajtmzlmhmzw.supabase.co`
-- **Tables**: `profiles`, `votes`, `ratings`, `custom_songs`, `country_videos`, `song_reactions`, `song_comments`, `app_settings`
+- **Tables**: `profiles`, `votes`, `ratings`, `custom_songs`, `country_videos`, `song_reactions`, `song_comments`, `app_settings`, `friends`
 - **Storage bucket**: `media` (public — videos, audio, cover art)
 - **Auth**: Email/password + Google OAuth → `/auth/callback`
 - **RLS**: Enabled on all tables. Public read, users manage own data.
-- **Schema**: See `SUPABASE_MIGRATION.sql` for full DDL
+- **Realtime**: Subscriptions on `votes`, `friends`, and `ratings` for live updates
+- **Schema**: See `SUPABASE_MIGRATION.sql` for full DDL (note: `friends` table not in migration file — exists in production only)
 
 ## Project Structure
 
@@ -44,7 +45,7 @@ src/
 ├── SongDetail.jsx       # Song detail modal with voting UI
 ├── Leaderboard.jsx      # Rankings (ratings, votes, comparison views)
 │
-├── AdminPanel.jsx       # Admin dashboard (songs, videos, themes, users) — largest file (~86KB)
+├── AdminPanel.jsx       # Admin dashboard (songs, videos, themes, users) — largest file (~87KB)
 ├── KaraokeMode.jsx      # Karaoke feature
 ├── LyricsPlayer.jsx     # Synced lyrics display
 ├── LyricsTimingEditor.jsx # Admin lyrics timing tool
@@ -90,10 +91,11 @@ src/
 - Admin access controlled by email whitelist in `adminConfig.js`
 - Songs can come from `songs.js` (built-in) or `custom_songs` table (admin-managed)
 - Videos stored in Supabase `media` bucket, referenced in `country_videos` table
+- Cover art (`cover_url` on `custom_songs`) is uploaded/displayed in Admin Panel only — not shown in user-facing song cards or detail views
 
 ## Things to Watch Out For
 
-- `AdminPanel.jsx` is very large (~86KB) — be careful with full reads, use targeted edits
-- `EurovisionVoting.jsx` and `SongDetail.jsx` are also large (~32-36KB each)
+- `AdminPanel.jsx` is very large (~87KB) — be careful with full reads, use targeted edits
+- `EurovisionVoting.jsx` (~37KB) and `SongDetail.jsx` (~33KB) are also large — use targeted edits
 - No test suite exists — always verify with `npm run build`
 - Supabase anon key is committed (this is expected — it's a public client key, RLS handles security)
