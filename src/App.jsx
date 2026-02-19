@@ -137,37 +137,12 @@ function App() {
   }
 
   const UserHeader = () => (
-    <div className="user-header" style={{
-      background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.06)',
-      backdropFilter: 'blur(16px)',
-      WebkitBackdropFilter: 'blur(16px)',
-      padding: '14px 20px',
-      marginBottom: '24px',
-      borderRadius: '14px',
-      border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`,
-      boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <div className={`user-header ${isLight ? 'user-header-light' : ''}`}>
+      <div className="user-header-left">
         <div
-          onClick={() => setShowAvatarCrop(true)}
-          title="Change profile picture"
-          style={{
-            width: '40px',
-            height: '40px',
-            background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            cursor: 'pointer',
-            transition: 'transform 0.2s ease',
-          }}
-          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
-          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+          onClick={() => { setShowAdmin(false); votingRef.current?.navigateToProfile(); }}
+          title="View profile"
+          className="user-header-avatar"
         >
           {userProfile?.avatar_url ? (
             <img
@@ -182,95 +157,63 @@ function App() {
         <div>
           <p
             onClick={() => { setShowAdmin(false); votingRef.current?.navigateToProfile(); }}
-            style={{ color: isLight ? '#1e293b' : 'white', fontWeight: 600, margin: 0, fontSize: '0.95rem', cursor: 'pointer' }}
+            className="user-header-name"
+            style={{ color: isLight ? '#1e293b' : 'white' }}
           >
             {userProfile?.name}
             {userIsAdmin && (
-              <span style={{
-                marginLeft: '8px',
-                fontSize: '0.7rem',
-                fontWeight: 700,
+              <span className="user-header-admin-badge" style={{
                 color: isLight ? 'var(--color-primary)' : '#c084fc',
                 background: isLight ? 'rgba(139,92,246,0.1)' : 'rgba(139,92,246,0.15)',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                verticalAlign: 'middle',
               }}>ADMIN</span>
             )}
           </p>
-          <p style={{ color: isLight ? '#64748b' : 'rgba(196,181,253,0.6)', fontSize: '0.8rem', margin: 0 }}>Eurovision Voter</p>
+          <p className="user-header-role" style={{ color: isLight ? '#64748b' : 'rgba(196,181,253,0.6)' }}>Eurovision Voter</p>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="user-header-actions">
         <button
           onClick={toggleMode}
           title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="header-btn header-btn-mode"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '8px 14px',
             background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)',
-            border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.12)'}`,
-            borderRadius: '10px',
+            borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.12)',
             color: isLight ? '#475569' : 'rgba(196,181,253,0.7)',
-            cursor: 'pointer',
-            fontSize: '0.85rem',
-            fontWeight: 500,
-            width: 'auto',
-            margin: 0,
-            transition: 'all 0.2s ease',
           }}
         >
-          {mode === 'dark' ? <Sun style={{ width: '14px', height: '14px' }} /> : <Moon style={{ width: '14px', height: '14px' }} />}
-          <span>{mode === 'dark' ? 'Light' : 'Dark'}</span>
+          {mode === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          <span className="header-btn-label">{mode === 'dark' ? 'Light' : 'Dark'}</span>
         </button>
         {userIsAdmin && (
           <button
             onClick={() => setShowAdmin(!showAdmin)}
+            title={showAdmin ? 'Back to app' : 'Admin panel'}
+            className={`header-btn header-btn-admin ${showAdmin ? 'header-btn-admin-active' : ''}`}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
               background: showAdmin
                 ? (isLight ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.3)')
                 : (isLight ? 'rgba(139,92,246,0.08)' : 'rgba(139,92,246,0.1)'),
-              border: `1px solid ${isLight ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.3)'}`,
-              borderRadius: '10px',
+              borderColor: isLight ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.3)',
               color: isLight ? 'var(--color-primary)' : '#c084fc',
-              cursor: 'pointer',
-              fontSize: '0.85rem',
-              fontWeight: 500,
-              width: 'auto',
-              margin: 0,
-              transition: 'all 0.2s ease',
             }}
           >
-            <Shield style={{ width: '14px', height: '14px' }} />
-            <span>{showAdmin ? 'Back to App' : 'Admin'}</span>
+            <Shield size={14} />
+            <span className="header-btn-label">{showAdmin ? 'App' : 'Admin'}</span>
           </button>
         )}
         <button
           onClick={handleSignOut}
+          title="Sign out"
+          className="header-btn header-btn-signout"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '8px 14px',
             background: isLight ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.15)',
-            border: `1px solid ${isLight ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.25)'}`,
-            borderRadius: '10px',
+            borderColor: isLight ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.25)',
             color: isLight ? '#dc2626' : 'rgba(252,165,165,0.8)',
-            cursor: 'pointer',
-            fontSize: '0.85rem',
-            fontWeight: 500,
-            width: 'auto',
-            margin: 0,
           }}
         >
-          <LogOut style={{ width: '14px', height: '14px' }} />
-          <span>Sign Out</span>
+          <LogOut size={14} />
+          <span className="header-btn-label">Sign Out</span>
         </button>
       </div>
     </div>

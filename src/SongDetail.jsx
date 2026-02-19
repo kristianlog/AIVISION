@@ -330,11 +330,17 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
     };
   }, [videoUrl]);
 
-  // Auto-scroll to active line
+  // Auto-scroll to active line — only within the lyrics container, never the whole modal
   useEffect(() => {
     if (currentLine >= 0 && lyricsRef.current && isPlaying) {
-      const el = lyricsRef.current.querySelector('.lyrics-line-active');
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const container = lyricsRef.current;
+      const el = container.querySelector('.lyrics-line-active');
+      if (!el) return;
+      // Only scroll if the lyrics container itself is scrollable
+      if (container.scrollHeight > container.clientHeight) {
+        const targetScroll = el.offsetTop - container.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
+        container.scrollTo({ top: Math.max(0, targetScroll), behavior: 'smooth' });
+      }
     }
   }, [currentLine, isPlaying]);
 

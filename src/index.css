@@ -25,6 +25,117 @@ body {
   box-sizing: border-box;
 }
 
+/* ─── User Header ──────────────────────────────────────── */
+.user-header {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 14px 20px;
+  margin-bottom: 24px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  overflow: hidden;
+}
+.user-header-light {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.user-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.user-header-avatar {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.user-header-avatar:hover {
+  transform: scale(1.1);
+}
+.user-header-name {
+  font-weight: 600;
+  margin: 0;
+  font-size: 0.95rem;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.user-header-admin-badge {
+  margin-left: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  vertical-align: middle;
+}
+.user-header-role {
+  font-size: 0.8rem;
+  margin: 0;
+}
+.user-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.header-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  width: auto;
+  margin: 0;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.header-btn-admin-active {
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+}
+
+@media (max-width: 640px) {
+  .user-header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .user-header-actions {
+    gap: 6px;
+  }
+  .header-btn {
+    padding: 8px;
+    gap: 0;
+  }
+  .header-btn-label {
+    display: none;
+  }
+  .user-header-admin-badge {
+    display: none;
+  }
+  .user-header-role {
+    display: none;
+  }
+}
+
 /* ─── Auth page centering ──────────────────────────────── */
 .auth-center {
   min-height: 100vh;
@@ -1642,8 +1753,7 @@ input:focus {
   }
 
   .detail-lyrics {
-    max-height: none;
-    overflow-y: visible;
+    max-height: 220px;
   }
 
   .comments-list {
@@ -4103,13 +4213,15 @@ input:focus {
 }
 
 .country-info-card {
-  background: rgba(139, 92, 246, 0.06);
-  border: 1px solid rgba(139, 92, 246, 0.15);
+  background: rgba(30, 27, 75, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(139, 92, 246, 0.2);
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 16px;
   position: relative;
-  z-index: 1;
+  z-index: 3;
   animation: fadeIn 0.3s ease;
 }
 .country-info-header {
@@ -5026,8 +5138,10 @@ body.light-mode {
 
 /* Light mode new components */
 .light-mode .country-info-card {
-  background: rgba(139, 92, 246, 0.04);
-  border-color: rgba(139, 92, 246, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: rgba(139, 92, 246, 0.15);
 }
 .light-mode .country-info-name { color: #1e293b; }
 .light-mode .country-info-fact { color: #334155; }

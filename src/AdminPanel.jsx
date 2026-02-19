@@ -591,25 +591,58 @@ const AdminPanel = ({ onBack, userProfile }) => {
   };
 
   const onVideoDragStart = (e, countryId, video) => {
-    e.preventDefault();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    // For mouse events, prevent default and start drag immediately
+    if (!e.touches) {
+      e.preventDefault();
+      setVideoDragging({
+        countryId,
+        startX: e.clientX,
+        startY: e.clientY,
+        startPosX: video.position_x ?? 50,
+        startPosY: video.position_y ?? 50,
+        confirmed: true,
+      });
+      return;
+    }
+    // For touch events, don't preventDefault — wait for threshold to distinguish scroll vs drag
     setVideoDragging({
       countryId,
-      startX: clientX,
-      startY: clientY,
+      startX: e.touches[0].clientX,
+      startY: e.touches[0].clientY,
       startPosX: video.position_x ?? 50,
       startPosY: video.position_y ?? 50,
+      confirmed: false,
     });
   };
 
   useEffect(() => {
     if (!videoDragging) return;
+    let confirmed = videoDragging.confirmed;
+
     const onMove = (e) => {
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       const dx = clientX - videoDragging.startX;
       const dy = clientY - videoDragging.startY;
+
+      // For touch: determine direction before committing
+      if (!confirmed && e.touches) {
+        const adx = Math.abs(dx);
+        const ady = Math.abs(dy);
+        if (ady > adx && ady > 10) {
+          // Vertical scroll intended — cancel the drag
+          setVideoDragging(null);
+          return;
+        }
+        if (adx > 10) {
+          confirmed = true;
+        } else {
+          return; // Not enough movement yet
+        }
+      }
+
+      if (e.touches && confirmed) e.preventDefault();
+
       // Moving mouse right => decrease posX (shift video left to reveal right side)
       const newX = Math.max(0, Math.min(100, videoDragging.startPosX - dx * 0.5));
       const newY = Math.max(0, Math.min(100, videoDragging.startPosY - dy * 0.5));
@@ -619,6 +652,10 @@ const AdminPanel = ({ onBack, userProfile }) => {
       }));
     };
     const onUp = (e) => {
+      if (!confirmed) {
+        setVideoDragging(null);
+        return;
+      }
       const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
       const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
       const dx = clientX - videoDragging.startX;
