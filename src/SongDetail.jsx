@@ -654,7 +654,15 @@ const SongDetail = ({ song, userScore, onVote, onClose, userProfile, videoUrl, v
         {/* Karaoke button + Country Info button */}
         <div className="detail-action-bar">
           {hasAudio && song.lyrics && (
-            <button onClick={() => setShowKaraoke(true)} className="detail-karaoke-btn">
+            <button onClick={() => {
+              // Pause the song preview audio before opening karaoke
+              const audio = audioRef.current;
+              if (audio && !audio.paused) {
+                audio.pause();
+                setIsPlaying(false);
+              }
+              setShowKaraoke(true);
+            }} className="detail-karaoke-btn">
               <Mic2 size={16} />
               <span>Karaoke Mode</span>
             </button>
