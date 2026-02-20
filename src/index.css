@@ -8,18 +8,23 @@
 }
 
 /* ─── Base ──────────────────────────────────────────────── */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 50%, var(--bg-3) 100%);
   min-height: 100vh;
   color: white;
-  overflow-x: hidden;
 }
 
 #root {
   min-height: 100vh;
   position: relative;
+  overflow-x: hidden;
 }
 
 #root > * {
@@ -3986,6 +3991,241 @@ input:focus {
   white-space: nowrap;
 }
 
+/* ─── User Suspend ──────────────────────────────────── */
+.admin-user-suspended {
+  opacity: 0.5;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.admin-user-badge-suspended {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.15);
+  border-radius: 6px;
+  vertical-align: middle;
+}
+.admin-suspend-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(196, 181, 253, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.admin-suspend-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+.admin-suspend-btn-active {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #86efac;
+}
+.admin-suspend-btn-active:hover {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+/* ─── Moderation Tabs ───────────────────────────────── */
+.admin-mod-tabs {
+  display: flex;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.admin-mod-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  color: rgba(196, 181, 253, 0.5);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  justify-content: center;
+}
+.admin-mod-tab:hover {
+  color: rgba(196, 181, 253, 0.8);
+}
+.admin-mod-tab-active {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+.admin-mod-count {
+  font-size: 0.7rem;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: rgba(139, 92, 246, 0.25);
+  color: #c4b5fd;
+  font-weight: 700;
+}
+
+/* ─── Moderation Cards ──────────────────────────────── */
+.admin-mod-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.admin-mod-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px 18px;
+  transition: all 0.2s ease;
+}
+.admin-mod-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.admin-mod-card-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+}
+.admin-mod-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.admin-mod-author {
+  font-weight: 600;
+  color: white;
+  font-size: 0.85rem;
+}
+.admin-mod-separator {
+  color: rgba(196, 181, 253, 0.3);
+  font-size: 0.8rem;
+}
+.admin-mod-song {
+  font-size: 0.82rem;
+  color: #c4b5fd;
+  font-weight: 500;
+}
+.admin-mod-time {
+  font-size: 0.72rem;
+  color: rgba(196, 181, 253, 0.35);
+  margin-left: auto;
+}
+.admin-mod-content {
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  border-left: 3px solid rgba(139, 92, 246, 0.3);
+}
+.admin-mod-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.admin-mod-emoji {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.admin-mod-remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(239, 68, 68, 0.1);
+  color: rgba(252, 165, 165, 0.6);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.admin-mod-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
+/* ─── Activity Log ──────────────────────────────────── */
+.admin-activity-list {
+  display: flex;
+  flex-direction: column;
+}
+.admin-activity-date-header {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(196, 181, 253, 0.4);
+  padding: 12px 0 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 4px;
+}
+.admin-activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+.admin-activity-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.admin-activity-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+  line-height: 1.4;
+}
+.admin-activity-body {
+  flex: 1;
+  min-width: 0;
+}
+.admin-activity-text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.4;
+}
+.admin-activity-detail {
+  margin: 3px 0 0;
+  font-size: 0.78rem;
+  color: rgba(196, 181, 253, 0.4);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-activity-time {
+  font-size: 0.72rem;
+  color: rgba(196, 181, 253, 0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
 /* ─── Live Standings ─────────────────────────────────── */
 .standings-crown {
   font-size: 1.2rem;
@@ -5381,6 +5621,18 @@ input:focus {
     gap: 5px;
     border-radius: 8px;
   }
+  .ev-tabs:has(.ev-tab:nth-child(5)) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .ev-tabs:has(.ev-tab:nth-child(5))::-webkit-scrollbar {
+    display: none;
+  }
+  .ev-tabs:has(.ev-tab:nth-child(5)) .ev-tab {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+  }
   .ev-container {
     padding-bottom: 16px;
   }
@@ -6021,6 +6273,81 @@ body.light-mode {
   background: color-mix(in srgb, var(--color-primary) 8%, transparent);
   color: var(--color-primary);
 }
+
+/* Suspend button light mode */
+.light-mode .admin-user-badge-suspended {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+.light-mode .admin-suspend-btn {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #94a3b8;
+}
+.light-mode .admin-suspend-btn:hover {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+.light-mode .admin-suspend-btn-active {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #16a34a;
+}
+
+/* Moderation light mode */
+.light-mode .admin-mod-tabs {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+.light-mode .admin-mod-tab {
+  color: #94a3b8;
+}
+.light-mode .admin-mod-tab-active {
+  background: white;
+  color: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.light-mode .admin-mod-count {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+.light-mode .admin-mod-card {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+.light-mode .admin-mod-card:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+.light-mode .admin-mod-author { color: #1e293b; }
+.light-mode .admin-mod-separator { color: #cbd5e1; }
+.light-mode .admin-mod-song { color: var(--color-primary); }
+.light-mode .admin-mod-time { color: #94a3b8; }
+.light-mode .admin-mod-content {
+  background: rgba(0, 0, 0, 0.03);
+  color: #334155;
+  border-left-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+.light-mode .admin-mod-remove-btn {
+  background: rgba(239, 68, 68, 0.06);
+  color: #f87171;
+}
+.light-mode .admin-mod-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+/* Activity log light mode */
+.light-mode .admin-activity-date-header {
+  color: #94a3b8;
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+.light-mode .admin-activity-item:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+.light-mode .admin-activity-text { color: #334155; }
+.light-mode .admin-activity-detail { color: #94a3b8; }
+.light-mode .admin-activity-time { color: #cbd5e1; }
 
 /* Video cards */
 .light-mode .admin-video-card {
