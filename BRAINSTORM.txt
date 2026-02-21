@@ -1,259 +1,241 @@
-AIVISION — Eurovision Voting App: Brainstorming Context
-=======================================================
+Hey! I need your help brainstorming ideas for my app called AIVISION. It's a Eurovision song voting web app — like a social experience where friends vote on Eurovision songs together. Let me walk you through everything we've built so far in detail.
 
-WHAT WE HAVE NOW (Current State)
----------------------------------
+====================================================================
+TECH STACK
+====================================================================
 
-Tech Stack:
-- React 19 (JSX, no TypeScript) + Vite 8 beta + React Router 7
-- Supabase (PostgreSQL, Auth, Storage, Realtime)
-- Tailwind CSS v4 + CSS variables for theming
-- Lucide React icons
-- PWA via vite-plugin-pwa (installable, offline support)
-- Deployed on Vercel (also Netlify-ready)
+- React 19 (plain JSX, no TypeScript) + Vite 8 beta + React Router 7
+- Supabase for everything backend — PostgreSQL database, Auth (email/password + Google OAuth), file Storage (a public "media" bucket for videos, audio, cover art), and Realtime subscriptions
+- Tailwind CSS v4 with CSS custom properties for theming
+- Lucide React for all icons
+- PWA via vite-plugin-pwa — installable on phones, has offline support
+- Deployed on Vercel (also has Netlify config ready)
+- ~14,500 lines of code total across ~22 files
 
-Features Already Built:
-1. Authentication — Email/password + Google OAuth, profile creation on signup
-2. Song Cards Grid — 12 built-in songs (Sweden, Italy, Ukraine, France, Norway, Spain, Greece, Finland, Switzerland, Ireland, Albania, Netherlands), each with country flag, title, artist, genre
-3. Video Previews — Hover (desktop) or tap (mobile) to preview song videos on cards
-4. Song Detail Modal — Full song view with lyrics, audio player, video background, voting UI, reactions, comments, ratings, karaoke mode, country info
-5. Eurovision-style Voting — Points system (1, 2, 3, 4, 5, 6, 7, 8, 10, 12), one vote per user per song
-6. Category Ratings — Per-song ratings on Lyrics, Melody, Memorability (1-10 scale)
-7. Reactions & Comments — Emoji reactions (heart, fire, clap, music note) and text comments per song
-8. Leaderboard — Three views: Song Ratings (average across categories), Votes (total points), and Vote Comparison (your votes vs. community average)
-9. Friends System — Add friends, see friend requests, view friends' votes
-10. Profile Tab — View/edit name (with 1-week cooldown), avatar upload/crop, friends management
-11. Karaoke Mode — Fullscreen lyrics display with audio sync, timing data support
-12. Lyrics Player — Synced lyrics that highlight current line during playback
-13. Lyrics Timing Editor — Admin tool to set timing for each lyric line
-14. Admin Panel (~2,450 lines) — Manage songs, videos, themes, users, custom songs (from Supabase), video position adjustment, lyrics timing
-15. Custom Songs — Admin can add songs via Supabase `custom_songs` table (beyond the 12 built-in)
-16. Theming — Dark/light mode + 10 preset color themes (Default Purple, Neon Disco, Classic Gold, Nordic Minimal, Retro Synthwave, Pastel Pop, Dark Elegance, Midnight Ocean, Fire & Ice, Tropical Sunset), stored in Supabase
-17. Glass Morphism UI — Backdrop blur effects, custom animations (twinkle, float, shimmer, pulse-glow)
-18. Confetti Animation — Canvas-based celebration on voting
-19. PWA Install Prompt — Smart banner with iOS/Android/Chrome instructions
-20. Search & Filter — Search songs by country/title/artist/genre, filter by genre dropdown
-21. Toast Notifications — Success/error messages
-22. Undo Vote — Ability to undo last vote
-23. Voting Deadline — Countdown timer support
-24. Realtime Updates — Supabase subscriptions on votes, friends, ratings
-25. Skeleton Loading — Loading placeholders for song cards
-26. Country Info — Eurovision facts per country (shown in song detail)
-27. Cover Art — Upload/display in admin only (not shown in user-facing cards)
+====================================================================
+THE USER FLOW — SCREEN BY SCREEN
+====================================================================
 
-Database Tables:
-- profiles — user profiles (name, email, avatar_url)
-- votes — Eurovision-style point votes per user per song
-- ratings — per-category ratings (lyrics, melody, memorable) per user per song
-- custom_songs — admin-managed songs beyond built-in 12
-- country_videos — video URLs and position data per country
-- song_reactions — emoji reactions per user per song
-- song_comments — text comments per user per song
-- app_settings — key-value store (theme config, voting deadline, etc.)
-- friends — friend relationships between users
+--- LOGIN / SIGNUP SCREEN ---
 
-File Sizes (lines of code):
-- index.css: 6,464 lines (all styles)
-- AdminPanel.jsx: 2,451 lines
-- EurovisionVoting.jsx: 1,030 lines
-- SongDetail.jsx: 949 lines
-- LyricsTimingEditor.jsx: 602 lines
-- Auth.jsx: 403 lines
-- LyricsPlayer.jsx: 310 lines
-- songs.js: 307 lines (12 built-in songs)
-- App.jsx: 273 lines
-- KaraokeMode.jsx: 254 lines
-- Leaderboard.jsx: 242 lines
-- PWAInstallPrompt.jsx: 200 lines
-- AvatarCropModal.jsx: 193 lines
-- AuthCallback.jsx: 173 lines
-- SongCard.jsx: 134 lines
-- countryInfo.js: 133 lines
-- useFlagColors.js: 121 lines
-- ThemeContext.jsx: 90 lines
-- Confetti.jsx: 86 lines
-- main.jsx: 41 lines
-- adminConfig.js: 14 lines
-- supabaseClient.js: 5 lines
-TOTAL: ~14,500 lines
+Full-screen gradient background (purple → blue → pink) with floating animated blobs and decorative star characters (✦). Glass morphism card in the center.
 
-Architecture Notes:
-- No TypeScript — all plain JSX/JS
-- No external state management (useState/useCallback/useMemo only)
-- No test suite — verify by building
-- Mobile-first, responsive grid layout
-- Admin access controlled by email whitelist
-- Supabase anon key is public (RLS handles security)
-- Local storage for votes cache, theme mode, name change cooldown
+Two modes toggled by a link at the bottom:
+- Sign In: email + password fields, a "Forgot password?" button (not wired up yet), gradient Login button
+- Sign Up: adds a "Your name" field above email/password, gradient Register button
 
-=========================================================
+Password field has a show/hide toggle (eye icon). Inputs have icon prefixes (User icon for name/email, Lock for password). Error messages show in a red translucent banner.
 
-IDEAS / SUGGESTIONS FOR BRAINSTORMING
-=========================================================
+After successful signup, a profile row is created in the `profiles` table with the user's name, email, and ID. Google OAuth is also supported — redirects to /auth/callback which handles the token exchange and profile creation.
 
-Below are concrete improvement ideas organized by category.
-Each includes what it is, why it matters, and rough scope.
+The app name and logo (if set by admin) display at the top of the card. There's also a non-functional X close button in the top right (leftover UI element).
 
---- UI/UX IMPROVEMENTS ---
+--- MAIN APP HEADER ---
 
-1. SKELETON/SHIMMER ON LEADERBOARD & PROFILE
-   Currently only song cards have skeleton loading states. The leaderboard
-   and profile tabs load data from Supabase but show nothing until it arrives.
-   Add skeleton loaders for the leaderboard rankings list and the profile/friends
-   sections to eliminate layout shifts and perceived lag.
+After login, the user sees a sticky header bar with:
+- Left side: Avatar circle (clickable → goes to profile tab) + user name + "ADMIN" badge if they're an admin + "Eurovision Voter" subtitle
+- Right side: Light/Dark mode toggle button, Admin button (only for admins, toggles between app and admin panel), Sign Out button (red tinted)
 
-2. EMPTY STATES WITH ILLUSTRATIONS
-   When a user hasn't voted yet, or has no friends, or there are no comments
-   on a song — the sections just show blank space. Add illustrated empty states
-   with call-to-action prompts ("No votes yet — tap a song to get started!",
-   "No friends added — search for users to connect!").
+All buttons have icon + text label, glass-style backgrounds that change between light and dark modes.
 
-3. PULL-TO-REFRESH ON MOBILE
-   As a PWA used mainly on phones, there's no way to manually refresh data
-   without reloading the browser tab. Implement a pull-to-refresh gesture
-   that re-fetches votes, ratings, and friends from Supabase.
+--- HERO SECTION ---
 
-4. SWIPE GESTURES FOR TAB NAVIGATION
-   Users can only tap the tab bar to switch between Songs/My Votes/Leaderboard.
-   Adding horizontal swipe gestures between tabs would feel more native on mobile.
+Below the header:
+- App logo (if configured) + app name ("AIVISION" by default) + subtitle ("Vote for your favorite songs")
+- A progress bar showing "X / Y songs voted" with a percentage fill and a checkmark when complete
+- Voting deadline countdown (if admin has set one): "Voting closes in X days, X hours"
+- Achievement badges row — earned badges like "First Vote", "All Voted", etc. with icons and colors
 
-5. ANIMATED TRANSITIONS BETWEEN TABS
-   Currently switching tabs is an instant swap. Add subtle slide/fade transitions
-   to make navigation feel smoother and more polished.
+--- TAB NAVIGATION ---
 
---- NEW FEATURES ---
+Three tabs in a horizontal bar:
+1. Songs (music icon) — the main grid
+2. My Votes (heart icon) — with a badge showing vote count
+3. Leaderboard (bar chart icon)
 
-6. SHARE YOUR VOTES / VOTE CARD
-   Let users generate a shareable image (or link) showing their top votes —
-   like a "My Eurovision Ballot" card. Great for social sharing. Could use
-   html2canvas or a server-side image generator.
+There's also a hidden 4th tab "Profile" that's accessed by clicking your avatar in the header (not shown in the tab bar).
 
-7. SONG COMPARISON / HEAD-TO-HEAD
-   A fun mode where users are shown two songs side-by-side and pick which
-   one they prefer. Results build a separate "duel ranking." Gamifies the
-   experience and drives more engagement.
+--- SONGS TAB ---
 
-8. PREDICTION GAME / BRACKET
-   Let users predict the final ranking before results are in. After the event,
-   compare predictions to actual results and award points for accuracy.
-   Leaderboard for best predictor among friends.
+Search bar with icon + clear button, and a custom genre dropdown filter (glass morphism style, not a native <select>). The dropdown shows "All Genres" by default, lists all genres found across songs.
 
-9. LIVE WATCH PARTY MODE
-   A synchronized experience where a group of friends watches together.
-   Show real-time reactions, vote reveals after each song, and a group
-   chat. Could use Supabase Realtime channels.
+Below that: a responsive CSS grid of song cards. While loading, 8 skeleton placeholder cards show (pulsing animation). If search returns nothing, an empty state with search icon says "No songs found."
 
-10. NOTIFICATION SYSTEM
-    Push notifications (via PWA service worker) for:
-    - Friend requests received
-    - Friends who just voted
-    - Voting deadline approaching
-    - New songs added by admin
-    Currently there's no way to know about activity without opening the app.
+Each SONG CARD is a clickable button containing:
+- A static video thumbnail as background (the first frame of the song's video, positioned via admin-configurable posX/posY percentages)
+- On hover (desktop): the video plays muted and looped as a preview
+- On mobile: first tap starts a 4-second video preview, second tap opens the song detail
+- Country flag emoji (large, top-left area)
+- Song title, artist name, country name
+- Footer: either "X pts" with a star icon (if voted) or "Tap to vote" with a music icon
 
-11. ACHIEVEMENT / BADGE SYSTEM
-    Award badges for milestones: "Voted on all songs", "First to vote",
-    "Rated every category", "Added 5 friends", "Karaoke King" (used karaoke
-    mode 10 times). Shown on profile. Adds gamification and return visits.
+Songs come from two sources merged together:
+1. 12 built-in songs hardcoded in songs.js (Sweden, Italy, Ukraine, France, Norway, Spain, Greece, Finland, Switzerland, Ireland, Albania, Netherlands)
+2. Custom songs from Supabase `custom_songs` table (admin can add/edit/delete these)
+Admin can also hide songs, reorder them via drag-and-drop, and mark them as ready/not-ready.
 
-12. SONG STATISTICS / ANALYTICS PAGE
-    A deeper analytics view per song: vote distribution histogram, rating
-    breakdown chart (average lyrics vs melody vs memorable), total reactions
-    count, comment word cloud. More data-driven than the current leaderboard.
+--- MY VOTES TAB ---
 
-13. USER ACTIVITY FEED
-    A timeline showing recent activity: "Alice voted 12 pts for Sweden",
-    "Bob commented on Italy", "Carol added you as a friend". Makes the
-    social aspect more visible and engaging.
+If no votes: empty state with heart icon and "No votes yet — Go to the Songs tab and start voting!"
 
-14. SPOTIFY / YOUTUBE INTEGRATION
-    Link each song to its Spotify track or YouTube video. Let users listen
-    to the full song without leaving the app (embed player) or open it
-    in Spotify. Enhances the music discovery aspect.
+If votes exist: summary line "X songs voted — Y total points", then a sorted list (highest points first). Each row shows:
+- Flag emoji
+- Song title + artist
+- Point value ("X pts")
+Clicking a row opens that song's detail modal.
 
---- TECHNICAL / PERFORMANCE ---
+--- LEADERBOARD TAB ---
 
-15. CODE SPLITTING & LAZY LOADING
-    AdminPanel.jsx alone is 2,450 lines and only used by admins. Lazy-load
-    it with React.lazy + Suspense so regular users never download it.
-    Same for KaraokeMode, LyricsTimingEditor, and AvatarCropModal.
+Three sub-views toggled by buttons:
 
-16. MOVE INLINE STYLES TO CSS CLASSES
-    Auth.jsx and several other components use extensive inline styles.
-    This hurts readability, prevents hover/focus pseudo-class usage,
-    and bloats the JSX. Migrate to Tailwind classes or CSS modules.
+1. "Song Ratings" — ranked by average score across 3 categories (Lyrics, Melody, Memorable). Each row shows: rank icon (trophy/medal/award for top 3, number for rest) + flag + title/artist + overall average score + individual category averages (pencil emoji for lyrics, music note for melody, sparkle for memorable) + number of raters.
 
-17. IMAGE/VIDEO OPTIMIZATION
-    Song card videos are loaded with preload="metadata" but there's no
-    lazy loading based on viewport visibility. Use IntersectionObserver
-    to only load video elements when cards scroll into view. Consider
-    poster images for video thumbnails.
+2. "Vote Points" — ranked by total Eurovision points. Shows total points, voter count, and the user's own score if they voted. The current leader gets a crown emoji (👑). Ties are labeled.
 
-18. ACCESSIBILITY AUDIT
-    - Missing aria-labels on icon-only buttons (theme toggle, sign out)
-    - No keyboard navigation support for the voting slider
-    - Low contrast text in some theme combinations
-    - No skip-to-content link
-    - Focus trapping missing in modals (SongDetail, AvatarCropModal)
-    - Screen reader announcements for toast messages
+3. "Compare" — shows only songs you've voted on, sorted by biggest difference between your vote and the community average. Each row shows "You: X" vs "Avg: Y" and a badge: "+Z higher" (green) / "Z lower" (red) / "≈ Agree" (neutral).
 
-19. ERROR BOUNDARY IMPROVEMENTS
-    main.jsx has an ErrorBoundary but individual routes/components don't.
-    A Supabase outage would crash the whole app. Add granular error
-    boundaries around the leaderboard, song detail, and admin panel.
+--- PROFILE TAB (accessed via avatar click) ---
 
---- SOCIAL / ENGAGEMENT ---
+Profile card with:
+- Avatar (clickable to upload/crop — opens AvatarCropModal)
+- Name with an edit pencil icon (has a 1-week cooldown between name changes, enforced client-side via localStorage)
+- Email display
+- Stats row: Votes count, Total Points, Friends count
 
-20. GROUP VOTING ROOMS
-    Create a "room" with a code that friends join. Everyone votes in the
-    same room, and the room has its own leaderboard. Good for watch parties,
-    office pools, or friend group competitions.
+Friend Requests section (if any): shows pending requests with Accept (checkmark) / Decline (X) buttons
 
-21. COMMENTS THREADING / REPLIES
-    Currently comments are flat. Add reply-to functionality so users can
-    have conversations about songs. Also consider upvoting comments.
+Friends List: shows each friend's avatar, name, their vote count and points. Remove button (X) on each.
 
-22. USER PROFILES WITH VOTING HISTORY
-    When you tap on a friend's name, see their full voting history,
-    favorite genres, and how their votes compare to the community.
-    Currently friends' votes are visible but there's no dedicated
-    profile page for other users.
+Find Friends: search bar that filters all registered users by name. Shows "Friends" status, "Pending" status, or "Add" button for each result.
 
---- CONTENT ---
+Confetti animation fires when certain actions complete on this tab.
 
-23. DYNAMIC SONG MANAGEMENT VIA ADMIN
-    The 12 built-in songs in songs.js are hardcoded. While custom_songs
-    exists in Supabase, the workflow could be smoother. Consider making
-    ALL songs come from Supabase so admins have full control without
-    code deployments. The built-in songs could be a seed/migration.
+--- SONG DETAIL MODAL ---
 
-24. COVER ART ON USER-FACING CARDS
-    Cover art (cover_url) is currently only shown in the Admin Panel.
-    Displaying it on song cards and in the detail view would make the
-    UI much richer and more visually appealing. This is a quick win.
+Opens as a full-screen overlay modal. Features:
 
-25. MULTILINGUAL SUPPORT (i18n)
-    Eurovision is an international event. Supporting multiple languages
-    (at minimum English + the song's native language for lyrics) would
-    be inclusive. Could use react-i18next for UI strings.
+VISUAL: Background video plays muted/looped behind a semi-transparent overlay (lazy-loaded 600ms after modal opens to keep the open animation fast, skipped on slow connections/Save-Data). Close button (X) top right. On mobile, there's a swipe-down-to-dismiss gesture (drag handle at top).
 
-=========================================================
+When audio is playing, the modal border glows with colors extracted from the country's flag emoji (using a custom useFlagColors hook that renders the emoji to a canvas and samples dominant colors).
 
-KNOWN TECHNICAL DEBT / ISSUES
-=========================================================
+HEADER: Large flag emoji + song title + artist name — country + genre tags
 
-- AdminPanel.jsx is 2,450 lines — should be broken into sub-components
-- EurovisionVoting.jsx is 1,030 lines — profile tab logic could be extracted
-- index.css is 6,464 lines — could benefit from organization/splitting
-- Auth.jsx uses inline styles + a `<style jsx>` block (not actual CSS-in-JS)
-- No TypeScript — type safety relies entirely on developer discipline
-- No tests — changes are verified only by successful builds
-- The `friends` table exists in production but not in the migration file
-- Forgot Password button exists in UI but has no handler attached
-- The close (X) button on the Auth page doesn't do anything
-- 13 npm vulnerabilities (3 moderate, 10 high) from audit
+AUDIO PLAYER: Play/Pause button, Restart button, progress bar (draggable on both mouse and touch, with smart horizontal-vs-vertical detection so it doesn't hijack scrolling), time display (current / total). The progress bar supports both mouse drag and touch drag.
 
-=========================================================
+ACTION BAR: "Karaoke Mode" button (if song has audio + lyrics) + "Country Info" toggle
 
-Use this document as context when brainstorming next steps,
-prioritizing features, or discussing architecture decisions.
+COUNTRY INFO CARD (expandable): Shows country flag, capital, Eurovision wins, first entry year, population, a fun fact, and famous Eurovision acts as chips.
+
+LYRICS SECTION: Scrollable lyrics display. Section headers (like [Verse 1], [Chorus]) styled differently. If timing data exists, the current line highlights as the audio plays, past lines dim, and clicking a line seeks the audio to that timestamp. Auto-scrolls to keep the active line centered.
+
+VOTING SECTION: "Give your points" heading. A custom slider mapped to Eurovision points [1, 2, 3, 4, 5, 6, 7, 8, 10, 12]. Shows the selected value large with a label ("Meh" for 1-2, "Okay" for 3-4, "Good" for 5-6, "Great" for 7-8, "Amazing" for 10, "DOUZE POINTS!" for 12). Color shifts from purple → pink → gold as value increases. "Cast Vote" button (or "Update Vote" if already voted). "Remove Vote" link if voted. Keyboard shortcuts: number keys 1-0 select points, Enter casts vote, Space toggles audio, Escape closes.
+
+Vote confirmation modal: shows song + flag + selected points + label, Cancel / Confirm buttons. Confetti animation on confirm.
+
+RATING SECTION: "Rate this song" with three sliders (1-10 each): Lyrics (pencil emoji), Melody (music note), Memorable (sparkle). "Save Ratings" button. These are separate from the Eurovision point vote.
+
+REACTIONS: Four emoji buttons (❤️ 🔥 👏 🎵). Each shows its count. Toggle on/off per user. Max 4 reactions per user per song. Optimistic updates.
+
+COMMENTS: Chronological list of comments, each with avatar + name + date + text. Users can delete their own comments (trash icon). Input field at bottom with Send button. Enter key submits. Optimistic updates. Real-time subscription updates reactions and comments live.
+
+--- KARAOKE MODE ---
+
+Fullscreen overlay with the song's audio playing. Lyrics displayed large, centered. If timing data exists, lines highlight in sync. Play/Pause, Restart, and Fullscreen toggle buttons. Time display. Clean dark background for focus.
+
+--- ADMIN PANEL ---
+
+Only accessible to admins (email whitelist in adminConfig.js). Accessed via the Admin button in the header. This is the biggest file (~2,450 lines). Sections accessible via sidebar tabs:
+
+1. SONGS MANAGEMENT: List of all songs (built-in + custom), searchable and filterable by "ready" status (has artist + title + lyrics + audio). Each song row is expandable to edit all fields. Features: add new custom song, delete songs, drag-to-reorder, hide/show songs, upload audio to Supabase Storage, edit lyrics, launch lyrics timing editor, preview songs via SongCard + SongDetail. Auto-generates flag emoji from country name.
+
+2. VIDEOS: Upload/manage video files per country. Adjust video position (posX/posY percentages) for how videos crop in the cards. Preview videos inline.
+
+3. THEMES: Visual editor for the app theme. Change app name, subtitle, primary/secondary colors, three background colors, upload a logo. 10 preset themes to choose from (Default Purple, Neon Disco, Classic Gold, Nordic Minimal, Retro Synthwave, Pastel Pop, Dark Elegance, Midnight Ocean, Fire & Ice, Tropical Sunset). Live preview. Saves to Supabase `app_settings` table.
+
+4. USERS: View all registered users. Admin tools: suspend/unsuspend users, view activity log, moderate comments (delete inappropriate ones, see all comments across all songs).
+
+5. VOTING DEADLINE: Set a deadline for when voting closes. Shows countdown in the main app.
+
+====================================================================
+THEMING SYSTEM
+====================================================================
+
+CSS custom properties controlled from React context:
+- --color-primary (default #8b5cf6 purple)
+- --color-secondary (default #ec4899 pink)
+- --bg-1, --bg-2, --bg-3 (three background gradient stops, defaults are deep purples/navy)
+
+Dark/light mode toggle: body class "light-mode" flips all glass surfaces from dark translucent to light translucent. Stored in localStorage.
+
+The whole theme (colors, app name, subtitle, logo URL) is stored in Supabase `app_settings` table under key "theme" as JSON. Loaded on app start.
+
+Glass morphism is used extensively: backdrop-filter: blur() on cards, modals, buttons. Custom CSS animations: twinkle (star sparkle), float (gentle bobbing), shimmer (loading effect), pulse-glow (breathing glow).
+
+====================================================================
+DATABASE SCHEMA (Supabase PostgreSQL)
+====================================================================
+
+profiles: id (UUID, from auth), name, email, avatar_url, created_at
+votes: id, user_id, song_id, score (1-12), created_at
+ratings: id, user_id, song_id, lyrics_rating, melody_rating, memorable_rating
+custom_songs: id, country, flag, artist, title, genre, lyrics, audio_url, cover_url, lyrics_timing (JSONB), sort_order, hidden, created_at
+country_videos: id, country_id (matches song id), url, posX, posY
+song_reactions: id, user_id, song_id, emoji, created_at
+song_comments: id, user_id, song_id, text, created_at
+app_settings: key (unique), value (text/JSON)
+friends: id, requester_id, receiver_id, status ('pending'/'accepted'), created_at
+
+RLS (Row Level Security) enabled on all tables. Public read access, users can only modify their own data.
+Realtime subscriptions active on: votes, friends, ratings, song_reactions, song_comments.
+
+====================================================================
+PWA FEATURES
+====================================================================
+
+- Service worker auto-generated by vite-plugin-pwa
+- Install prompt banner appears after 3-4 seconds (smart detection: iOS shows manual Safari instructions, Android/Chrome shows native install prompt)
+- Dismissal remembered for 3 days via localStorage
+- Already-installed detection (standalone mode check)
+
+====================================================================
+STATE MANAGEMENT
+====================================================================
+
+No external state library. Everything uses React hooks:
+- useState for local component state
+- useCallback/useMemo for performance
+- useRef for DOM refs, timers, and preventing re-fetches
+- useContext for theme (ThemeContext)
+- Supabase Realtime subscriptions for live updates
+- localStorage for: cached votes, dark/light mode preference, name change cooldown, PWA install dismissal
+
+====================================================================
+KNOWN ISSUES & TECH DEBT
+====================================================================
+
+- AdminPanel.jsx is 2,450 lines — monster file, should be broken into sub-components
+- EurovisionVoting.jsx is 1,030 lines — the profile/friends logic should be extracted
+- index.css is 6,464 lines — all styles in one file
+- Auth.jsx uses extensive inline styles + a fake `<style jsx>` block (not actual CSS-in-JS framework, just a style tag)
+- The "Forgot Password" button on the login page does nothing
+- The X close button on the login page does nothing
+- No TypeScript anywhere — zero type safety
+- No test suite — we verify changes only by running `npm run build`
+- The `friends` table exists in production Supabase but isn't in the migration SQL file
+- 11 npm vulnerabilities (1 moderate, 10 high) from npm audit
+- Cover art (cover_url) is uploaded in admin but never shown to users in song cards or detail view
+
+====================================================================
+WHAT I WANT TO BRAINSTORM
+====================================================================
+
+I'm looking for ideas on:
+- What features to add next
+- UI/UX improvements
+- How to make the social/engagement side stronger
+- Any cool Eurovision-specific features
+- Technical improvements worth doing
+- How to prioritize what to build next
+- Anything creative or fun that would make this app stand out
+
+The app is used by a friend group during Eurovision season. It's meant to be fun, social, and visually impressive. Not a commercial product — more of a passion project that should feel polished and delightful to use.
